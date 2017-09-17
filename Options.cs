@@ -20,7 +20,7 @@ namespace Pocoyo
         [ValueList(typeof(List<string>))]
         public IList<string> Files { get; set; }
 
-        [Option('o', "output", Required = true, HelpText = "Output file or folder, if folder file name matches input file.")]
+        [Option('o', "output", Required = false, HelpText = "(Required) - Output file or folder, if folder file name matches input file.")]
         public string OutputFile { get; set; }
         public string OutputFolder { get; set; }
 
@@ -46,6 +46,11 @@ namespace Pocoyo
 
         [OptionList('f', "ExcludedAttributes", Separator = ',', HelpText = "List of Attributes that should be exclude (comma seperated). For example JsonIgnore,NotMapped.")]
         public IList<string> ExcludedAttributes { get; set; }
+
+        [Option('c', "commands", Required = false, HelpText = "Read args in from command file.")]
+        public string CommandFile { get; set; }
+
+        public bool ReparseCommandFile { get; set; }
 
         [ParserState]
         public IParserState LastParserState { get; set; }
@@ -88,6 +93,8 @@ options:
 
   -f, --excludedAttributes   List of excluded class / prop attributes (comma seperated)
 
+  -c, --commands   Read command line args from file
+
   -v, --verbose    (Default: False) Prints all messages
 
   -s, --Silent     (Default: False) Turns off all console messages
@@ -111,8 +118,23 @@ Examples:
 
         public List<string> InputFiles { get; } = new List<string>();
 
-        private bool ProcesArgs()
+        private bool ProcessArgs(bool ignoreCommandFile = false)
         {
+            if (!ignoreCommandFile)
+            {
+                if (!string.IsNullOrEmpty(CommandFile))
+                {
+                    if (!File.Exists(CommandFile))
+                    {
+                        LogError($"Missing --commands file: {CommandFile}");
+                        return false;
+                    }
+
+                    ReparseCommandFile = true;
+                    return false;
+                }
+            }
+
             if (Files.Count == 0)
             {
                 LogError($"Missing input files / folders");
@@ -144,6 +166,12 @@ Examples:
                 }
             }
 
+            if (string.IsNullOrEmpty(OutputFile))
+            {
+                LogError($"Missing --outputFile");
+                return false;
+            }
+
             if (!string.IsNullOrEmpty(OutputFile))
             {
                 var outputFilePath = Path.GetFullPath(OutputFile);
@@ -171,7 +199,7 @@ Examples:
                 return false;
             }
 
-            return InputFiles.Count > 0;
+            return true;
         }
 
         public static Options ParseArgs(string[] args)
@@ -181,21 +209,47 @@ Examples:
                 var options = new Options();
                 if (Parser.Default.ParseArguments(args, options))
                 {
-                    if (options.ProcesArgs())
+                    if (options.ProcessArgs())
                         return options;
+
+                    if (options.ReparseCommandFile)
+                    {
+                        // Re-parse with command file
+                        var commandArgs = GetCommandFileArgs(options.CommandFile);
+
+                        options = new Options();
+                        if (Parser.Default.ParseArguments(commandArgs, options))
+                        {
+                            if (options.ProcessArgs(true))
+                                return options;
+                        }
+                    }
                     Log.Error(options.GetUsage());
                 }
 
+#if Diagnostics
                 if (Debugger.IsAttached)
                 {
                     Log.Info(options.GetOriginalUsage());
                 }
+#endif
             }
             catch (Exception ex)
             {
                 Log.Error($"Parse error {ex.Message}");
             }
             return null;
+        }
+
+        private static string[] GetCommandFileArgs(string commandFile)
+        {
+            var commandArgs = File.ReadAllLines(commandFile);
+            var trimmed = new List<string>();
+            foreach (var arg in commandArgs)
+            {
+                trimmed.Add(arg.Trim());
+            }
+            return trimmed.ToArray();
         }
     }
 }
