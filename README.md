@@ -18,6 +18,8 @@ Generates typescript definition files from c# files or a folder containing c# fi
 
   -f, --excludedAttributes   List of excluded class / prop attributes (comma seperated)
 
+  -c, --commands   Read command line args from file
+
   -v, --verbose    (Default: False) Prints all messages
 
   -s, --Silent     (Default: False) Turns off all console messages
