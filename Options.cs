@@ -98,6 +98,8 @@ Produced by Carlos Gomes (cgomes@iinet.com)
 Examples:
     {Utility.AssemblyName} Sample.cs -o Sample.d.ts
     {Utility.AssemblyName} Sample.cs SampleFolder --output=Combined.d.ts --verbose --excluded=MyClass,MyEnum --excludedAttributes=JsonIgnore,NotMapped
+    {Utility.AssemblyName} Sample.cs SampleFolder --output=Combined.d.ts --Known=T
+    {Utility.AssemblyName} Sample.cs SampleFolder --output=Combined.d.ts --commands=c:\temp\command_line_args_file.txt
 {errorMessage}
 ";
         }
