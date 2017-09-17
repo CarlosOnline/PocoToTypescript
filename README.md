@@ -13,7 +13,7 @@ Generates typescript definition files from c# files or a folder containing c# fi
   -x, --skipPreProcess (Default: False) Skips pre-processing files for types.
 
   -n, --namespace  (Default: null) Alternate namespace to use in typescript definitions. Defaults c# file's namespace.
-  
+
   -e, --excluded   List of excluded types (comma seperated)
 
   -f, --excludedAttributes   List of excluded class / prop attributes (comma seperated)
@@ -32,12 +32,16 @@ _Examples:_
     PocoToTypescript.exe Sample.cs SampleFolder --output=Combined.d.ts --verbose  --excluded=MyClass,MyEnum --excludedAttributes=JsonIgnore,NotMapped
 ```
 
+# Notes
+
+* All input files are pre-processed in order to discover all types.  This allows for tyescript files to reference the discovered types.  Uknown types are emitted as any.  This can be turned off with --skipPreprocess.
+
 # Exceptions:
 
 ### Qualified Names converted to any
 Qualified types that are not found in the c# files with be given the **any** typescript tye.
 
-##### For example: 
+##### For example:
 
 | c#            | Typescript    |
 | ------------- |:-------------:|
@@ -49,9 +53,31 @@ Qualified types that are not found in the c# files with be given the **any** typ
 ### Nested classes / structs / enums not handled
 Nested classes, enums, structs are not handled.  Feel free to add and share the code please.
 
-# Notes
+### Nested classes / structs / enums not handled
+Nested classes, enums, structs are not handled.  Feel free to add and share the code please.
 
-* All input files are pre-processed in order to discover all types.  This allows for tyescript files to reference the discovered types.  Uknown types are emitted as any.  This can be turned off with --skipPreprocess.
+### All declarations of must have identical type parameters
+c# classes with similar bases can lead to dupliate typescript definitions.
+Workaround: use --exclude command line option to exclude this type
+
+_Typescript example_
+```
+   export interface IData {
+      primaryKey : number;
+   }
+
+   export interface IData<T> extends IData {
+      primaryKeyPredicate : any;
+   }
+````
+
+### Multiple dimensional arrays mapped to any
+c# multi-dimensional arrays are not handled. Instead they are mapped to any.
+
+```
+array[,];
+array[][];
+```
 
 
 
