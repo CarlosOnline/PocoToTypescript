@@ -12,7 +12,7 @@ namespace Pocoyo
     /// <summary>
     /// Generates Typescript generations from CodeAnalysis compulation
     /// </summary>
-    public class PocoToTypescriptSpitter
+    public class Pocoyo
     {
         public bool Silent { get; set; }
         public bool PreprocessMode { get; set; }
@@ -34,12 +34,22 @@ namespace Pocoyo
         private static Dictionary<string, string> DiscoveredTypes { get; } = new Dictionary<string, string>();
         private static Dictionary<string, string> ExcludedTypes { get; } = new Dictionary<string, string>();
 
-        internal static string IsKnownType(string fullType)
+        internal static bool IsKnownType(string fullType)
+        {
+            return DiscoveredTypes.ContainsKey(fullType);
+        }
+
+        internal static string MapKnownType(string fullType)
         {
             return DiscoveredTypes.ContainsKey(fullType) ? DiscoveredTypes[fullType] : null;
         }
 
-        internal static string IsExcludedType(string fullType)
+        internal static bool IsExcludedType(string fullType)
+        {
+            return Excluded.Contains(fullType) || ExcludedTypes.ContainsKey(fullType);
+        }
+
+        internal static string MapExcludedType(string fullType)
         {
             if (Excluded.Contains(fullType))
                 return fullType;
@@ -62,12 +72,13 @@ namespace Pocoyo
             var tree = CSharpSyntaxTree.ParseText(textCode);
             var root = (CompilationUnitSyntax)tree.GetRoot();
 
-            var info = new PocoToTypescriptSpitter
+            var info = new Pocoyo
             {
                 PreprocessMode = true,
                 DiscoverTypes = true,
                 Silent = !Debugger.IsAttached,
             };
+            info.AddLevel($"/* {inputFile} */");
             info.Process(root.Members);
             return true;
         }
@@ -87,7 +98,7 @@ namespace Pocoyo
             var tree = CSharpSyntaxTree.ParseText(textCode);
             var root = (CompilationUnitSyntax)tree.GetRoot();
 
-            var info = new PocoToTypescriptSpitter
+            var info = new Pocoyo
             {
                 DiscoverTypes = discoverTypes,
                 OutputFile = outputFile,
@@ -98,7 +109,7 @@ namespace Pocoyo
 
         public static void Process(CompilationUnitSyntax compilationUnit)
         {
-            var info = new PocoToTypescriptSpitter();
+            var info = new Pocoyo();
             info.Process(compilationUnit.Members);
         }
 
@@ -123,7 +134,7 @@ namespace Pocoyo
                     return;
             }
 
-            Log.Error($"Unhandled type: {memberItem.GetType().Name} {memberItem.Kind()}");
+            Log.Warn($"Unhandled type: {memberItem.GetType().Name} {memberItem.Kind()}");
         }
 
         public void Process(IEnumerable<MemberDeclarationSyntax> members)
@@ -183,7 +194,7 @@ namespace Pocoyo
             CloseLevel();
         }
 
-        private string GetClassBase(BaseListSyntax syntaxItem)
+        private string ToExtends(BaseListSyntax syntaxItem)
         {
             if (syntaxItem == null)
                 return "";
@@ -191,13 +202,37 @@ namespace Pocoyo
             var baseTypes = new List<string>();
             foreach (var syntaxItemType in syntaxItem.Types)
             {
-                baseTypes.Add(syntaxItemType.Type.ToTypescript());
+                switch (syntaxItemType.Type)
+                {
+                    case IdentifierNameSyntax typeItem:
+                        if (typeItem.IsKnownType())
+                            baseTypes.Add(syntaxItemType.Type.ToTypescript());
+                        else if (!typeItem.IsExcluded())
+                            Log.Warn($"Uknown base type: {syntaxItemType.Type} for {syntaxItemType}");
+                        break;
+                    case GenericNameSyntax typeItem:
+                        {
+                            var baseType = typeItem.ToTypescript();
+                            if (baseType != "any")
+                                baseTypes.Add(syntaxItemType.Type.ToTypescript());
+                            else if (!typeItem.IsExcluded())
+                                Log.Warn($"Uknown base type: {syntaxItemType.Type}");
+                        }
+                        break;
+
+                    default:
+                        Log.Warn($"Uknown base type: {syntaxItemType.Type} for {syntaxItemType}");
+                        break;
+                }
             }
 
             // Dont add extends any
-            var extension = string.Join(",", baseTypes);
-            if (extension != "any")
-                return " extends " + string.Join(",", baseTypes);
+            if (baseTypes.Count > 0)
+            {
+                var extension = string.Join(",", baseTypes);
+                if (extension != "any")
+                    return " extends " + string.Join(",", baseTypes);
+            }
 
             return "";
         }
@@ -219,7 +254,7 @@ namespace Pocoyo
             AddDiscoveredType(syntaxItem);
 
             if (!PreprocessMode)
-                AddLevel($@"export interface {syntaxItem.Identifier}{syntaxItem.TypeParameterList}{GetClassBase(syntaxItem.BaseList)}");
+                AddLevel($@"export interface {syntaxItem.Identifier}{syntaxItem.TypeParameterList}{ToExtends(syntaxItem.BaseList)}");
 
             foreach (var memberItem in syntaxItem.Members)
             {
@@ -237,7 +272,7 @@ namespace Pocoyo
                         // skip methods etc
                         break;
                     default:
-                        Log.Error($"unhandled type {memberItem.Kind()} {memberItem}");
+                        Log.Warn($"unhandled type {memberItem.Kind()} {memberItem}");
                         break;
                 }
             }
@@ -255,7 +290,10 @@ namespace Pocoyo
 
             var publicOnly = syntaxItem.Parent.Kind() == SyntaxKind.ClassDeclaration;
             if (!publicOnly || syntaxItem.IsPublic())
-                AddLine($"{syntaxItem.Identifier.ToTypescript()} : {syntaxItem.Type.ToTypescript()};");
+            {
+                var nullable = syntaxItem.Type.IsNullable() ? "?" : "";
+                AddLine($"{syntaxItem.Identifier.ToTypescript()}{nullable} : {syntaxItem.Type.ToTypescript()};");
+            }
         }
 
         private bool AddDiscoveredType(TypeDeclarationSyntax syntaxItem)
@@ -281,7 +319,7 @@ namespace Pocoyo
             if (!DiscoverTypes || string.IsNullOrEmpty(fullType) || string.IsNullOrEmpty(Namespace))
                 return false;
 
-            //if (fullType.Contains("TestClass"))
+            //if (fullType.Contains("BaseDataObject"))
             //    Log.Info("found");
 
             // Add Identifier
@@ -305,7 +343,7 @@ namespace Pocoyo
 
             if (DiscoveredTypes.ContainsKey(fullType))
             {
-                Log.Error($"Discovered Type already found: {fullType} {syntaxItem}");
+                Log.Warn($"Discovered Type already found: {fullType} {syntaxItem}");
                 return false;
             }
 
@@ -341,8 +379,8 @@ namespace Pocoyo
             if (!DiscoverTypes || string.IsNullOrEmpty(fullType) || string.IsNullOrEmpty(Namespace))
                 return false;
 
-            //if (fullType.Contains("TestClass"))
-            //    Log.Info("found");
+            if (fullType.Contains("BaseDataObject"))
+                Log.Info("found");
 
             // Add Identifier
             var identifierFullType = $"{Namespace}.{syntaxItem.Identifier.Text}";
@@ -365,7 +403,7 @@ namespace Pocoyo
 
             if (ExcludedTypes.ContainsKey(fullType))
             {
-                Log.Error($"Excluded Type already found: {fullType} {syntaxItem}");
+                Log.Warn($"Excluded Type already found: {fullType} {syntaxItem}");
                 return false;
             }
 
@@ -450,142 +488,165 @@ namespace Pocoyo
     /// </summary>
     public static class CodeAnalysisExtensions
     {
+        public static string ToTypescript(this PredefinedTypeSyntax syntaxItem)
+        {
+            switch (syntaxItem.Keyword.Kind())
+            {
+                case SyntaxKind.StringKeyword:
+                case SyntaxKind.CharKeyword:
+                    return "string";
+
+                case SyntaxKind.BoolKeyword:
+                    return "boolean";
+
+                case SyntaxKind.ByteKeyword:
+                case SyntaxKind.SByteKeyword:
+                case SyntaxKind.ShortKeyword:
+                case SyntaxKind.UShortKeyword:
+                case SyntaxKind.IntKeyword:
+                case SyntaxKind.UIntKeyword:
+                case SyntaxKind.LongKeyword:
+                case SyntaxKind.ULongKeyword:
+                case SyntaxKind.DoubleKeyword:
+                case SyntaxKind.FloatKeyword:
+                case SyntaxKind.DecimalKeyword:
+                    return "number";
+
+                case SyntaxKind.ObjectKeyword:
+                    return "any";
+
+                default:
+                    Log.Warn($"Unknown type: {syntaxItem}");
+                    return "any";
+            }
+        }
+
+        public static string ToTypescript(this IdentifierNameSyntax syntaxItem)
+        {
+            if (syntaxItem.Identifier.Text == "dynamic")
+                return "any";
+
+            if (string.Equals(syntaxItem.Identifier.Text, "datetime", StringComparison.OrdinalIgnoreCase))
+                return "string";
+
+            if (string.Equals(syntaxItem.Identifier.Text, "timespan", StringComparison.OrdinalIgnoreCase))
+                return "string";
+
+            if (syntaxItem.IsKnownType())
+                return syntaxItem.Identifier.Text;
+
+            // Don't warn for common generic <T> argument
+            if (syntaxItem.Identifier.Text == "T")
+                return "any";
+
+            Log.Warn($"Uknown identifier {syntaxItem}");
+            return "any";
+        }
+
+        public static string ToTypescript(this QualifiedNameSyntax syntaxItem)
+        {
+            // check for Generic List
+            // TODO: Other known types?
+            if (syntaxItem.ToFullType().StartsWith("System.Collections.Generic.List<"))
+                return syntaxItem.Right.ToTypescript();
+
+            var fullType = Pocoyo.MapKnownType(syntaxItem.ToFullType());
+            if (!string.IsNullOrEmpty(fullType))
+                return fullType;
+
+            // Can't get full type so return any
+            return "any";
+        }
+
         public static string ToTypescript(this TypeSyntax type)
         {
             switch (type)
             {
                 case PredefinedTypeSyntax syntaxItem:
-                    switch (syntaxItem.Keyword.Kind())
-                    {
-                        case SyntaxKind.StringKeyword:
-                        case SyntaxKind.CharKeyword:
-                            return "string";
-
-                        case SyntaxKind.BoolKeyword:
-                            return "boolean";
-
-                        case SyntaxKind.ByteKeyword:
-                        case SyntaxKind.SByteKeyword:
-                        case SyntaxKind.ShortKeyword:
-                        case SyntaxKind.UShortKeyword:
-                        case SyntaxKind.IntKeyword:
-                        case SyntaxKind.UIntKeyword:
-                        case SyntaxKind.LongKeyword:
-                        case SyntaxKind.ULongKeyword:
-                        case SyntaxKind.DoubleKeyword:
-                        case SyntaxKind.FloatKeyword:
-                        case SyntaxKind.DecimalKeyword:
-                            return "number";
-
-                        case SyntaxKind.ObjectKeyword:
-                            return "any";
-
-                        default:
-                            Log.Error($"Unknown type: {syntaxItem}");
-                            return "any";
-                    }
+                    return syntaxItem.ToTypescript();
 
                 case NullableTypeSyntax syntaxItem:
-                    return syntaxItem.ElementType.ToTypescript() + "?";
+                    return syntaxItem.ElementType.ToTypescript();
 
                 case GenericNameSyntax syntaxItem:
                     return syntaxItem.ToTypescript();
 
                 case IdentifierNameSyntax syntaxItem:
-                    {
-                        if (syntaxItem.Identifier.Text == "dynamic")
-                            return "any";
-
-                        return syntaxItem.Identifier.Text;
-                    }
+                    return syntaxItem.ToTypescript();
 
                 case ArrayTypeSyntax syntaxItem:
-                    // TODO: All rank specifiers?
-                    return syntaxItem.ElementType.ToTypescript() + syntaxItem.RankSpecifiers.ToString();
-
-                case QualifiedNameSyntax syntaxItem:
+                    if (syntaxItem.RankSpecifiers.IsMultiRankArray())
                     {
-                        // check for Generic List
-                        // TODO: Other known types?
-                        if (syntaxItem.ToFullType().StartsWith("System.Collections.Generic.List<"))
-                            return syntaxItem.Right.ToTypescript();
-
-                        var fullType = PocoToTypescriptSpitter.IsKnownType(syntaxItem.ToFullType());
-                        if (!string.IsNullOrEmpty(fullType))
-                            return fullType;
-
-                        // Can't get full type so return any
+                        Log.Info($"WARNING: To many ranks: {syntaxItem} returning any");
                         return "any";
                     }
+                    return syntaxItem.ElementType.ToTypescript() + syntaxItem.RankSpecifiers.ToTypescript();
+
+                case QualifiedNameSyntax syntaxItem:
+                    return syntaxItem.ToTypescript();
             }
 
-            Log.Error($"unknown type: {type}");
+            Log.Warn($"unknown type: {type}");
             return type.ToString();
+        }
+
+        /// <summary>
+        /// TODO: Figure out how to map multip rank c# to typescript.
+        /// For example:
+        ///     c# array[,] or array[][]        typescript: ???
+        /// </summary>
+        public static string ToTypescript(this SyntaxList<ArrayRankSpecifierSyntax> syntaxList)
+        {
+            if (syntaxList.Count != 1 || syntaxList[0].Rank != 1)
+            {
+                Log.Info($"WARNING: To many ranks: {syntaxList} returning any");
+                return "any";
+            }
+
+            return "[]";
         }
 
         public static string ToTypescript(this TypeArgumentListSyntax syntaxItem)
         {
             if (syntaxItem.Arguments.Count != 1)
             {
-                Log.Error($"to many generic type args: {string.Join(",", syntaxItem.Arguments)}");
+                Log.Warn($"to many generic type args: {string.Join(",", syntaxItem.Arguments)} from {syntaxItem}");
                 return "any";
             }
 
             var arg = syntaxItem.Arguments.First();
-            switch (arg)
-            {
-                case IdentifierNameSyntax typeItem:
-                    {
-                        if (PocoToTypescriptSpitter.IsKnownType(typeItem.Identifier.Text) != null)
-                            return typeItem.Identifier.Text;
-                        if (typeItem.Identifier.Text == "dynamic")
-                            return "any";
-                        if (PocoToTypescriptSpitter.IsExcludedType(typeItem.Identifier.Text) != null)
-                            return "any";
-                    }
-                    break;
-
-                case PredefinedTypeSyntax typeItem:
-                    return arg.ToTypescript();
-
-                default:
-                    return arg.ToTypescript();
-            }
-
-
-            Log.Error($"Unknown type: {syntaxItem} returning any");
-            return "any";
+            return arg.ToTypescript();
         }
 
-        public static string ToTypescript(this GenericNameSyntax syntax)
+        public static string ToTypescript(this GenericNameSyntax syntaxItem)
         {
-            if (syntax.Identifier.Text == "List")
+            if (syntaxItem.Identifier.Text == "List")
             {
-                return syntax.TypeArgumentList.ToTypescript() + "[]";
+                return syntaxItem.TypeArgumentList.ToTypescript() + "[]";
             }
 
-            if (syntax.Identifier.Text == "Expression")
+            if (syntaxItem.Identifier.Text == "Expression")
             {
                 return "any";
             }
 
-            if (PocoToTypescriptSpitter.IsKnownType(syntax.Identifier.Text) != null)
+            if (syntaxItem.IsKnownType())
             {
-                return $"{syntax.Identifier.Text}<{syntax.TypeArgumentList.ToTypescript()}>";
+                return $"{syntaxItem.Identifier.Text}<{syntaxItem.TypeArgumentList.ToTypescript()}>";
             }
 
-            if (PocoToTypescriptSpitter.IsExcludedType(syntax.Identifier.Text) != null)
+            if (syntaxItem.IsExcluded())
             {
                 return "any";
             }
 
-            Log.Error($"unknown Generic: {syntax} mapped to any");
+            Log.Warn($"unknown Generic: {syntaxItem} mapped to any");
             return "any";
         }
 
-        public static string ToTypescript(this SyntaxToken token)
+        public static string ToTypescript(this SyntaxToken syntaxItem)
         {
-            return token.ToString().ToCamelCaseString();
+            return syntaxItem.ToString().ToCamelCaseString();
         }
 
         public static string ToCamelCaseString(this string value)
@@ -593,6 +654,11 @@ namespace Pocoyo
             if (string.IsNullOrEmpty(value))
                 return null;
             return char.ToLower(value[0]) + value.Substring(1);
+        }
+
+        public static bool IsNullable(this TypeSyntax syntaxItem)
+        {
+            return syntaxItem is NullableTypeSyntax;
         }
 
         public static bool IsPublic(this PropertyDeclarationSyntax syntaxItem)
@@ -639,12 +705,42 @@ namespace Pocoyo
             return $"{syntaxItem.Left}.{syntaxItem.Right}";
         }
 
+        public static bool IsKnownType(this BaseTypeDeclarationSyntax syntaxItem)
+        {
+            return Pocoyo.IsKnownType(syntaxItem.Identifier.Text);
+        }
+
+        public static bool IsKnownType(this IdentifierNameSyntax syntaxItem)
+        {
+            return Pocoyo.IsKnownType(syntaxItem.Identifier.Text);
+        }
+
+        public static bool IsKnownType(this GenericNameSyntax syntaxItem)
+        {
+            return Pocoyo.IsKnownType(syntaxItem.Identifier.Text);
+        }
+
+        public static bool IsExcluded(this BaseTypeDeclarationSyntax syntaxItem)
+        {
+            return Pocoyo.IsExcludedType(syntaxItem.Identifier.Text);
+        }
+
+        public static bool IsExcluded(this IdentifierNameSyntax syntaxItem)
+        {
+            return Pocoyo.IsExcludedType(syntaxItem.Identifier.Text);
+        }
+
+        public static bool IsExcluded(this GenericNameSyntax syntaxItem)
+        {
+            return Pocoyo.IsExcludedType(syntaxItem.Identifier.Text);
+        }
+
         public static bool IsExluded(this BaseTypeDeclarationSyntax syntaxItem)
         {
             if (syntaxItem == null)
                 return true;
 
-            if (PocoToTypescriptSpitter.IsExcludedType(syntaxItem.Identifier.Text) != null)
+            if (Pocoyo.IsExcludedType(syntaxItem.Identifier.Text))
                 return true;
 
             return syntaxItem.AttributeLists.IsExluded();
@@ -660,7 +756,7 @@ namespace Pocoyo
 
         public static bool IsExluded(this SyntaxList<AttributeListSyntax> attributeListSyntax)
         {
-            if (PocoToTypescriptSpitter.ExcludedAttributes.Count == 0)
+            if (Pocoyo.ExcludedAttributes.Count == 0)
                 return false;
 
             foreach (var attributeList in attributeListSyntax)
@@ -671,7 +767,7 @@ namespace Pocoyo
                     {
                         case IdentifierNameSyntax attribItem:
                             {
-                                var found = PocoToTypescriptSpitter.ExcludedAttributes.FirstOrDefault(item => string.Equals(item, attribItem.Identifier.Text));
+                                var found = Pocoyo.ExcludedAttributes.FirstOrDefault(item => string.Equals(item, attribItem.Identifier.Text));
                                 if (found != null)
                                     return true;
                             }
@@ -680,6 +776,11 @@ namespace Pocoyo
                 }
             }
             return false;
+        }
+
+        public static bool IsMultiRankArray(this SyntaxList<ArrayRankSpecifierSyntax> syntaxList)
+        {
+            return syntaxList.Count != 1 || syntaxList[0].Rank != 1;
         }
     }
 

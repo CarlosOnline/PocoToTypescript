@@ -194,6 +194,45 @@ namespace Pocoyo
                 Debugger.Break();
         }
 
+        public static void Warn(string message, params object[] args)
+        {
+            if (SilentMode) return;
+
+            try
+            {
+                var argList = new List<object>(args);
+                var msg = string.Format("WARNING:" + message, argList.ToArray());
+                Console.WriteLine(msg);
+                Debug.WriteLine(msg);
+            }
+            catch
+            {
+                var msg = "WARNING:" + message.Replace("{", "[").Replace("}", "[");
+                Console.WriteLine(msg);
+                Debug.WriteLine(msg);
+            }
+            if (Debugger.IsAttached)
+                Debugger.Break();
+        }
+
+        public static void Warn(string message)
+        {
+            if (SilentMode) return;
+
+            try
+            {
+                var msg = $"WARNING: {message}";
+                Console.WriteLine(msg);
+                Debug.WriteLine(msg);
+            }
+            catch
+            {
+                // Ignored
+            }
+            if (Debugger.IsAttached)
+                Debugger.Break();
+        }
+
         public static void Verbose(string message, params object[] args)
         {
             if (SilentMode) return;

@@ -25,11 +25,11 @@ namespace Pocoyo
 
                 Log.SilentMode = Options.Silent;
                 Log.VerbosMode = Options.Verbose  || Debugger.IsAttached;
-                PocoToTypescriptSpitter.DefaultNamespace = Options.Namespace;
+                Pocoyo.DefaultNamespace = Options.Namespace;
                 if (Options.Excluded != null)
-                    PocoToTypescriptSpitter.Excluded = Options.Excluded.ToList();
+                    Pocoyo.Excluded = Options.Excluded.ToList();
                 if (Options.ExcludedAttributes != null)
-                    PocoToTypescriptSpitter.ExcludedAttributes = Options.ExcludedAttributes.ToList();
+                    Pocoyo.ExcludedAttributes = Options.ExcludedAttributes.ToList();
 
                 Log.Verbose($"{Utility.AssemblyName} {string.Join(" ", args)}");
 
@@ -38,7 +38,7 @@ namespace Pocoyo
                 {
                     foreach (var inputFile in Options.InputFiles)
                     {
-                        PocoToTypescriptSpitter.PreProcess(inputFile);
+                        Pocoyo.PreProcess(inputFile);
                     }
                 }
 
@@ -48,7 +48,7 @@ namespace Pocoyo
                 {
                     var outputFilePath = GetOutputFilePath(inputFile);
 
-                    PocoToTypescriptSpitter.Process(inputFile, outputFilePath, !Options.PreProcess);
+                    Pocoyo.Process(inputFile, outputFilePath, !Options.PreProcess);
 
                     if (!string.Equals(Options.OutputFile, outputFilePath))
                         Log.Info($"Generated: {outputFilePath}");
