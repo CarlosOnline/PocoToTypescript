@@ -13,12 +13,12 @@ namespace Pocoyo2
 
     class TestClass
     {
-        bool boolProp1 { get; set; }
+        public bool boolProp1 { get; set; }
     }
 
     abstract class TestClassAbstract
     {
-        bool boolProp1 { get; set; }
+        public bool boolProp1 { get; set; }
     }
 
     interface TestInterface
@@ -103,6 +103,9 @@ namespace Pocoyo2
         public TestClassAbstract TestClassAbstractProp { get; set; }
         public TestInterface TestInterfaceProp { get; set; }
         public TestEnum testEnumProp { get; set; }
+        public Pocoyo.TestStruct qualifiedTestStructProp { get; set; }
+        public Pocoyo.TestClass qualifiedTestClassProp { get; set; }
+        public Pocoyo.TestEnum qualifiedTestEnumProp { get; set; }
     }
 
     class TestStaticPublicProps
@@ -184,84 +187,93 @@ namespace Pocoyo2
         public ushort? ushortProp { get; set; }
         public TestStruct? testStructProp { get; set; }
         public TestEnum? testEnumProp { get; set; }
+        public Pocoyo.TestStruct qualifiedTestStructProp { get; set; }
+        public Pocoyo.TestClass qualifiedTestClassProp { get; set; }
+        public Pocoyo.TestEnum qualifiedTestEnumProp { get; set; }
     }
 
     class TestArrayProps
     {
-        bool[] boolProp { get; set; }
-        byte[] byteProp { get; set; }
-        char[] charProp { get; set; }
-        decimal[] decimalProp { get; set; }
-        double[] doubleProp { get; set; }
-        dynamic[] dynamicProp { get; set; }
-        float[] floatProp { get; set; }
-        int[] intProp { get; set; }
-        int[,] intArrayXXProp { get; set; }
-        int[] intArrayXProp { get; set; }
-        int[][] intArrayXArrayXProp { get; set; }
-        long[] longProp { get; set; }
-        object[] objectProp { get; set; }
-        sbyte[] sbyteProp { get; set; }
-        short[] shortProp { get; set; }
-        string[] stringProp { get; set; }
-        uint[] uintProp { get; set; }
-        ulong[] ulongProp { get; set; }
-        ushort[] ushortProp { get; set; }
-        TestStruct[] testStructProp { get; set; }
-        TestClass[] testClassProp { get; set; }
-        TestEnum[] testEnumProp { get; set; }
+        public bool[] boolProp { get; set; }
+        public byte[] byteProp { get; set; }
+        public char[] charProp { get; set; }
+        public decimal[] decimalProp { get; set; }
+        public double[] doubleProp { get; set; }
+        public dynamic[] dynamicProp { get; set; }
+        public float[] floatProp { get; set; }
+        public int[] intProp { get; set; }
+        public int[,] intArrayXXProp { get; set; }
+        public int[] intArrayXProp { get; set; }
+        public int[][] intArrayXArrayXProp { get; set; }
+        public long[] longProp { get; set; }
+        public object[] objectProp { get; set; }
+        public sbyte[] sbyteProp { get; set; }
+        public short[] shortProp { get; set; }
+        public string[] stringProp { get; set; }
+        public uint[] uintProp { get; set; }
+        public ulong[] ulongProp { get; set; }
+        public ushort[] ushortProp { get; set; }
+        public TestStruct[] testStructProp { get; set; }
+        public TestClass[] testClassProp { get; set; }
+        public TestEnum[] testEnumProp { get; set; }
+        public Pocoyo.TestStruct[] qualifiedTestStructProp { get; set; }
+        public Pocoyo.TestClass[] qualifiedTestClassProp { get; set; }
+        public Pocoyo.TestEnum[] qualifiedTestEnumProp { get; set; }
     }
 
     class TestListProps
     {
-        List<bool> boolProp { get; set; }
-        List<byte> byteProp { get; set; }
-        List<char> charProp { get; set; }
-        List<decimal> decimalProp { get; set; }
-        List<double> doubleProp { get; set; }
-        List<dynamic> dynamicProp { get; set; }
-        List<float> floatProp { get; set; }
-        List<int> intProp { get; set; }
-        List<int[,]> intArrayXXProp { get; set; }
-        List<int[]> intArrayXProp { get; set; }
-        List<int[][]> intArrayXArrayXProp { get; set; }
-        List<long> longProp { get; set; }
-        List<object> objectProp { get; set; }
-        List<sbyte> sbyteProp { get; set; }
-        List<short> shortProp { get; set; }
-        List<string> stringProp { get; set; }
-        List<uint> uintProp { get; set; }
-        List<ulong> ulongProp { get; set; }
-        List<ushort> ushortProp { get; set; }
-        List<TestStruct> testStructProp { get; set; }
-        List<TestClass> testClassProp { get; set; }
-        List<TestEnum> testEnumProp { get; set; }
+        public List<bool> boolProp { get; set; }
+        public List<byte> byteProp { get; set; }
+        public List<char> charProp { get; set; }
+        public List<decimal> decimalProp { get; set; }
+        public List<double> doubleProp { get; set; }
+        public List<dynamic> dynamicProp { get; set; }
+        public List<float> floatProp { get; set; }
+        public List<int> intProp { get; set; }
+        public List<int[,]> intArrayXXProp { get; set; }
+        public List<int[]> intArrayXProp { get; set; }
+        public List<int[][]> intArrayXArrayXProp { get; set; }
+        public List<long> longProp { get; set; }
+        public List<object> objectProp { get; set; }
+        public List<sbyte> sbyteProp { get; set; }
+        public List<short> shortProp { get; set; }
+        public List<string> stringProp { get; set; }
+        public List<uint> uintProp { get; set; }
+        public List<ulong> ulongProp { get; set; }
+        public List<ushort> ushortProp { get; set; }
+        public List<TestStruct> testStructProp { get; set; }
+        public List<TestClass> testClassProp { get; set; }
+        public List<TestEnum> testEnumProp { get; set; }
+        public List<Pocoyo.TestStruct> qualifiedTestStructProp { get; set; }
+        public List<Pocoyo.TestClass> qualifiedTestClassProp { get; set; }
+        public List<Pocoyo.TestEnum> qualifiedTestEnumProp { get; set; }
     }
 
     class TestCollectionsGenericListProps
     {
-        System.Collections.Generic.List<bool> boolProp { get; set; }
-        System.Collections.Generic.List<byte> byteProp { get; set; }
-        System.Collections.Generic.List<char> charProp { get; set; }
-        System.Collections.Generic.List<decimal> decimalProp { get; set; }
-        System.Collections.Generic.List<double> doubleProp { get; set; }
-        System.Collections.Generic.List<dynamic> dynamicProp { get; set; }
-        System.Collections.Generic.List<float> floatProp { get; set; }
-        System.Collections.Generic.List<int> intProp { get; set; }
-        System.Collections.Generic.List<int[,]> intArrayXXProp { get; set; }
-        System.Collections.Generic.List<int[]> intArrayXProp { get; set; }
-        System.Collections.Generic.List<int[][]> intArrayXArrayXProp { get; set; }
-        System.Collections.Generic.List<long> longProp { get; set; }
-        System.Collections.Generic.List<object> objectProp { get; set; }
-        System.Collections.Generic.List<sbyte> sbyteProp { get; set; }
-        System.Collections.Generic.List<short> shortProp { get; set; }
-        System.Collections.Generic.List<string> stringProp { get; set; }
-        System.Collections.Generic.List<uint> uintProp { get; set; }
-        System.Collections.Generic.List<ulong> ulongProp { get; set; }
-        System.Collections.Generic.List<ushort> ushortProp { get; set; }
-        System.Collections.Generic.List<TestStruct> testStructProp { get; set; }
-        System.Collections.Generic.List<TestClass> testClassProp { get; set; }
-        System.Collections.Generic.List<TestEnum> testEnumProp { get; set; }
+        public System.Collections.Generic.List<bool> boolProp { get; set; }
+        public System.Collections.Generic.List<byte> byteProp { get; set; }
+        public System.Collections.Generic.List<char> charProp { get; set; }
+        public System.Collections.Generic.List<decimal> decimalProp { get; set; }
+        public System.Collections.Generic.List<double> doubleProp { get; set; }
+        public System.Collections.Generic.List<dynamic> dynamicProp { get; set; }
+        public System.Collections.Generic.List<float> floatProp { get; set; }
+        public System.Collections.Generic.List<int> intProp { get; set; }
+        public System.Collections.Generic.List<int[,]> intArrayXXProp { get; set; }
+        public System.Collections.Generic.List<int[]> intArrayXProp { get; set; }
+        public System.Collections.Generic.List<int[][]> intArrayXArrayXProp { get; set; }
+        public System.Collections.Generic.List<long> longProp { get; set; }
+        public System.Collections.Generic.List<object> objectProp { get; set; }
+        public System.Collections.Generic.List<sbyte> sbyteProp { get; set; }
+        public System.Collections.Generic.List<short> shortProp { get; set; }
+        public System.Collections.Generic.List<string> stringProp { get; set; }
+        public System.Collections.Generic.List<uint> uintProp { get; set; }
+        public System.Collections.Generic.List<ulong> ulongProp { get; set; }
+        public System.Collections.Generic.List<ushort> ushortProp { get; set; }
+        public System.Collections.Generic.List<TestStruct> testStructProp { get; set; }
+        public System.Collections.Generic.List<TestClass> testClassProp { get; set; }
+        public System.Collections.Generic.List<TestEnum> testEnumProp { get; set; }
     }
 }
 

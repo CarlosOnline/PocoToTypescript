@@ -25,35 +25,28 @@ namespace Pocoyo
                 Log.VerbosMode = Options.Verbose;
                 Log.Verbose($"{Utility.AssemblyName} {string.Join(" ", args)}");
 
+                // Preprocess all files
+                if (Options.PreProcess)
+                {
+                    foreach (var inputFile in Options.InputFiles)
+                    {
+                        PocoToTypescriptSpitter.PreProcess(inputFile);
+                    }
+                }
+
+                // Generate typescript definition files
+
                 foreach (var inputFile in Options.InputFiles)
                 {
-                    var textCode = Utility.ReadAllText(inputFile);
-                    if (string.IsNullOrEmpty(textCode))
-                    {
-                        Log.Error($"empty c# input file: {inputFile}");
-                        return -1;
-                    }
+                    var outputFilePath = GetOutputFilePath(inputFile);
 
-                    string outputFilePath;
-                    if (!string.IsNullOrEmpty(Options.OutputFile))
-                    {
-                        outputFilePath = Options.OutputFile;
-                    }
-                    else
-                    {
-                        outputFilePath = Path.Combine(Options.OutputFolder, Path.GetFileNameWithoutExtension(inputFile) + ".d.ts");
-                        if (File.Exists(outputFilePath))
-                            File.Delete(outputFilePath);
-                    }
+                    PocoToTypescriptSpitter.Process(inputFile, outputFilePath, !Options.PreProcess);
 
-                    var tree = CSharpSyntaxTree.ParseText(textCode);
-                    var root = (CompilationUnitSyntax)tree.GetRoot();
-                    PocoToTypescriptSpitter.Process(root, outputFilePath);
-
-                    if (!string.IsNullOrEmpty(Options.OutputFolder))
+                    if (!string.Equals(Options.OutputFile, outputFilePath))
                         Log.Info($"Generated: {outputFilePath}");
                 }
 
+                // Log combined output file if any
                 if (!string.IsNullOrEmpty(Options.OutputFile))
                     Log.Info($"Generated {Options.OutputFile}");
 
@@ -65,5 +58,21 @@ namespace Pocoyo
                 return -2;
             }
         }
+
+        /// <summary>
+        /// Returns OutputFile if specified or output file from OutputFolder based on input file
+        /// </summary>
+        private static string GetOutputFilePath(string inputFile)
+        {
+            if (!string.IsNullOrEmpty(Options.OutputFile))
+                return Options.OutputFile;
+
+            var outputFilePath = Path.Combine(Options.OutputFolder, Path.GetFileNameWithoutExtension(inputFile) + ".d.ts");
+            if (File.Exists(outputFilePath))
+                File.Delete(outputFilePath);
+
+            return outputFilePath;
+        }
+
     }
 }

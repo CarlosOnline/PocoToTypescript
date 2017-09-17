@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -16,6 +13,8 @@ namespace Pocoyo
     /// </summary>
     public class PocoToTypescriptSpitter
     {
+        public bool Silent { get; set; }
+        public bool DiscoverTypes { get; set; }
         public string OutputFile { get; set; }
 
         private int _indent = 0;
@@ -25,25 +24,61 @@ namespace Pocoyo
         private const string CloseBrase = "}";
 
         private static List<string> Namespaces { get; } = new List<string>();
-        public static string Namespace => string.Join(".", Namespaces);
+        private static string Namespace => string.Join(".", Namespaces);
 
-        public static Dictionary<string, string> DiscoveredTypes { get; } = new Dictionary<string, string>();
+        private static Dictionary<string, string> DiscoveredTypes { get; } = new Dictionary<string, string>();
 
-        public static bool ContainsType(string fullType)
+        internal static bool ContainsType(string fullType)
         {
             return DiscoveredTypes.ContainsKey(fullType);
         }
 
         /// <summary>
-        /// Process compulation unit to output file
+        /// Pre-process compulation unit to output file
         /// </summary>
-        public static void Process(CompilationUnitSyntax compilationUnit, string outputFile)
+        public static bool PreProcess(string inputFile)
         {
+            var textCode = Utility.ReadAllText(inputFile);
+            if (string.IsNullOrEmpty(textCode))
+            {
+                Log.Error($"empty c# input file: {inputFile}");
+                return false;
+            }
+
+            var tree = CSharpSyntaxTree.ParseText(textCode);
+            var root = (CompilationUnitSyntax)tree.GetRoot();
+
             var info = new PocoToTypescriptSpitter
             {
+                DiscoverTypes = true,
+                Silent = true,
+            };
+            info.Process(root.Members);
+            return true;
+        }
+
+        /// <summary>
+        /// Process compulation unit to output file
+        /// </summary>
+        public static bool Process(string inputFile, string outputFile, bool discoverTypes)
+        {
+            var textCode = Utility.ReadAllText(inputFile);
+            if (string.IsNullOrEmpty(textCode))
+            {
+                Log.Error($"empty c# input file: {inputFile}");
+                return false;
+            }
+
+            var tree = CSharpSyntaxTree.ParseText(textCode);
+            var root = (CompilationUnitSyntax)tree.GetRoot();
+
+            var info = new PocoToTypescriptSpitter
+            {
+                DiscoverTypes = discoverTypes,
                 OutputFile = outputFile,
             };
-            info.Process(compilationUnit.Members);
+            info.Process(root.Members);
+            return true;
         }
 
         public static void Process(CompilationUnitSyntax compilationUnit)
@@ -178,6 +213,9 @@ namespace Pocoyo
 
         private bool AddDiscoveredType(BaseTypeDeclarationSyntax syntaxItem)
         {
+            if (!DiscoverTypes)
+                return false;
+
             if (!string.IsNullOrEmpty(Namespace))
             {
                 var fullType = $"{Namespace}.{syntaxItem.Identifier.Text}";
@@ -209,6 +247,9 @@ namespace Pocoyo
 
         private void AddLevel(string line)
         {
+            if (Silent)
+                return;
+
             var output = $"{Indent}{line} {OpenBrace}";
             Log.Verbose(output);
             if (!string.IsNullOrEmpty(OutputFile))
@@ -218,6 +259,9 @@ namespace Pocoyo
 
         private void AddLine(string line)
         {
+            if (Silent)
+                return;
+
             var output = $"{Indent}{line}";
             Log.Verbose(output);
             if (!string.IsNullOrEmpty(OutputFile))
@@ -226,6 +270,9 @@ namespace Pocoyo
 
         private void CloseLevel(string line = "")
         {
+            if (Silent)
+                return;
+
             DecreaseLevel();
             var output = $@"{Indent}{line}{CloseBrase}
 ";
@@ -332,7 +379,7 @@ namespace Pocoyo
                     return "any[]";
                 }
 
-                return syntax.TypeArgumentList.Arguments.FirstOrDefault() + "[]";
+                return syntax.TypeArgumentList.Arguments.First().ToTypescript() + "[]";
             }
 
             Log.Error($"unknown Generic: {syntax}");

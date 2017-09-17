@@ -29,6 +29,11 @@ namespace Pocoyo
         [Option('s', "Silent", DefaultValue = false, HelpText = "Turns off all console messages")]
         public bool Silent { get; set; }
 
+        [Option('p', "SkipPreprocess", DefaultValue = false, HelpText = "Skips pre-processing files for types.")]
+        public bool SkipPreprocess { get; set; }
+
+        public bool PreProcess => !SkipPreprocess;
+
         [ParserState]
         public IParserState LastParserState { get; set; }
 
