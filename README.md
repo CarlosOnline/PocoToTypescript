@@ -12,6 +12,8 @@ Generates typescript definition files from c# files or a folder containing c# fi
 
   -x, --skipPreProcess (Default: False) Skips pre-processing files for types.
 
+  -n, --namespace  (Default: null) Alternate namespace to use in typescript definitions. Defaults c# file's namespace.
+  
   -v, --verbose    (Default: False) Prints all messages
 
   -s, --Silent     (Default: False) Turns off all console messages
