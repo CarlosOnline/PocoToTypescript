@@ -198,7 +198,8 @@ namespace Pocoyo
             {
                 var idx = syntaxItem.Members.Count - 1;
                 var memberItem = syntaxItem.Members[idx];
-                AddLine($"{memberItem.Identifier} = {idx}");
+                var value = memberItem.EqualsValue?.Value != null ? " = " + memberItem.EqualsValue.Value : "";
+                AddLine($"{memberItem.Identifier}{value}");
             }
 
             CloseLevel();
