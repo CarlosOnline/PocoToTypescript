@@ -10,6 +10,8 @@ Generates typescript definition files from c# files or a folder containing c# fi
 
   -o, --output     Output file or folder.  If folder, then uses input file name for output file name within output folder.
 
+  -x, --skipPreProcess (Default: False) Skips pre-processing files for types.
+
   -v, --verbose    (Default: False) Prints all messages
 
   -s, --Silent     (Default: False) Turns off all console messages
@@ -40,5 +42,10 @@ Qualified types that are not found in the c# files with be given the **any** typ
 
 ### Nested classes / structs / enums not handled
 Nested classes, enums, structs are not handled.  Feel free to add and share the code please.
+
+# Notes
+
+* All input files are pre-processed in order to discover all types.  This allows for tyescript files to reference the discovered types.  Uknown types are emitted as any.  This can be turned off with --skipPreprocess.
+
 
 
