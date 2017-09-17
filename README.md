@@ -34,8 +34,8 @@ Produced by Carlos Gomes (cgomes@iinet.com)
 
 _Examples:_
 ```
-    PocoToTypescript.exe Sample.cs -o Sample.d.ts
-    PocoToTypescript.exe Sample.cs SampleFolder --output=Combined.d.ts --verbose  --excluded=MyClass,MyEnum --excludedAttributes=JsonIgnore,NotMapped
+    PocoToTypescriptGenerator Sample.cs -o Sample.d.ts
+    PocoToTypescriptGenerator Sample.cs SampleFolder --output=Combined.d.ts --verbose  --excluded=MyClass,MyEnum --excludedAttributes=JsonIgnore,NotMapped
     PocoToTypescriptGenerator Sample.cs SampleFolder --output=Combined.d.ts --Known=T
     PocoToTypescriptGenerator --commands=command_line_args_file.txt
 ```
