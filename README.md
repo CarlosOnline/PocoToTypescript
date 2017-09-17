@@ -14,6 +14,10 @@ Generates typescript definition files from c# files or a folder containing c# fi
 
   -n, --namespace  (Default: null) Alternate namespace to use in typescript definitions. Defaults c# file's namespace.
   
+  -e, --excluded   List of excluded types (comma seperated)
+
+  -f, --excludedAttributes   List of excluded class / prop attributes (comma seperated)
+
   -v, --verbose    (Default: False) Prints all messages
 
   -s, --Silent     (Default: False) Turns off all console messages
@@ -25,7 +29,7 @@ Produced by Carlos Gomes (cgomes@iinet.com)
 _Examples:_
 ```
     PocoToTypescript.exe Sample.cs -o Sample.d.ts
-    PocoToTypescript.exe Sample.cs SampleFolder --output=Combined.d.ts --verbose
+    PocoToTypescript.exe Sample.cs SampleFolder --output=Combined.d.ts --verbose  --excluded=MyClass,MyEnum --excludedAttributes=JsonIgnore,NotMapped
 ```
 
 # Exceptions:
