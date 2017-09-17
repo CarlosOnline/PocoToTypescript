@@ -16,6 +16,7 @@ namespace Pocoyo
         public bool Silent { get; set; }
         public bool DiscoverTypes { get; set; }
         public string OutputFile { get; set; }
+        public static string DefaultNamespace { get; set; }
 
         private int _indent = 0;
         private string Indent => " ".PadRight(_indent);
@@ -28,9 +29,9 @@ namespace Pocoyo
 
         private static Dictionary<string, string> DiscoveredTypes { get; } = new Dictionary<string, string>();
 
-        internal static bool ContainsType(string fullType)
+        internal static string ContainsType(string fullType)
         {
-            return DiscoveredTypes.ContainsKey(fullType);
+            return DiscoveredTypes.ContainsKey(fullType) ? DiscoveredTypes[fullType] : null;
         }
 
         /// <summary>
@@ -126,7 +127,10 @@ namespace Pocoyo
 
             Namespaces.Add(syntaxItem.Name.ToString());
 
-            AddLevel($@"declare module {syntaxItem.Name}");
+            if (!string.IsNullOrEmpty(DefaultNamespace))
+                AddLevel($@"declare module {DefaultNamespace}");
+            else
+                AddLevel($@"declare module {syntaxItem.Name}");
 
             Process(syntaxItem.Members);
 
@@ -225,7 +229,12 @@ namespace Pocoyo
                     return false;
                 }
 
-                DiscoveredTypes[fullType] = syntaxItem.Identifier.Text;
+                // Use default namespace if specified
+                if (!string.IsNullOrEmpty(DefaultNamespace))
+                    DiscoveredTypes[fullType] = fullType.Replace(Namespace, DefaultNamespace);
+                else
+                    DiscoveredTypes[fullType] = fullType;
+
                 return true;
             }
             return false;
@@ -357,8 +366,9 @@ namespace Pocoyo
                     if (syntaxItem.ToFullType().StartsWith("System.Collections.Generic.List<"))
                         return syntaxItem.Right.ToTypescript();
 
-                    if (PocoToTypescriptSpitter.ContainsType(syntaxItem.ToFullType()))
-                        return syntaxItem.ToFullType();
+                    var fullType = PocoToTypescriptSpitter.ContainsType(syntaxItem.ToFullType());
+                    if (!string.IsNullOrEmpty(fullType))
+                        return fullType;
 
                     // Can't get full type so return any
                     return "any";

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -19,20 +20,26 @@ namespace Pocoyo
         [ValueList(typeof(List<string>))]
         public IList<string> Files { get; set; }
 
-        [Option('o', "output", Required = true, HelpText = "Output file or folder, if folder file name matches input file")]
+        [Option('o', "output", Required = true, HelpText = "Output file or folder, if folder file name matches input file.")]
         public string OutputFile { get; set; }
         public string OutputFolder { get; set; }
 
-        [Option('v', "verbose", DefaultValue = false, HelpText = "Prints all messages")]
+        [Option('v', "verbose", DefaultValue = false, HelpText = "Prints all messages.")]
         public bool Verbose { get; set; }
 
-        [Option('s', "Silent", DefaultValue = false, HelpText = "Turns off all console messages")]
+        [Option('s', "Silent", DefaultValue = false, HelpText = "Turns off all console messages.")]
         public bool Silent { get; set; }
 
         [Option('p', "SkipPreprocess", DefaultValue = false, HelpText = "Skips pre-processing files for types.")]
         public bool SkipPreprocess { get; set; }
 
         public bool PreProcess => !SkipPreprocess;
+
+        /// <summary>
+        /// Namespace to use in typescript definitions
+        /// </summary>
+        [Option('n', "namespace", Required = false, HelpText = "Namespace to use in typescript definitions.")]
+        public string Namespace { get; set; }
 
         [ParserState]
         public IParserState LastParserState { get; set; }
@@ -69,6 +76,8 @@ options:
 
   -o, --output     Output file or folder.  If folder, then uses input file name for output file name within output folder.
 
+  -x, --skipPreProcess (Default: False) Skips pre-processing files for types.
+
   -v, --verbose    (Default: False) Prints all messages
 
   -s, --Silent     (Default: False) Turns off all console messages
@@ -82,6 +91,12 @@ Examples:
     {Utility.AssemblyName} Sample.cs SampleFolder --output=Combined.d.ts --verbose
 {errorMessage}
 ";
+        }
+
+        public string GetOriginalUsage()
+        {
+            return HelpText.AutoBuild(this,
+                (HelpText current) => HelpText.DefaultParsingErrorsHandler(this, current));
         }
 
         public List<string> InputFiles { get; } = new List<string>();
@@ -159,6 +174,11 @@ Examples:
                     if (options.ProcesArgs())
                         return options;
                     Log.Error(options.GetUsage());
+                }
+
+                if (Debugger.IsAttached)
+                {
+                    Log.Info(options.GetOriginalUsage());
                 }
             }
             catch (Exception ex)

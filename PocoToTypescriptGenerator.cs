@@ -23,6 +23,8 @@ namespace Pocoyo
 
                 Log.SilentMode = Options.Silent;
                 Log.VerbosMode = Options.Verbose;
+                PocoToTypescriptSpitter.DefaultNamespace = Options.Namespace;
+
                 Log.Verbose($"{Utility.AssemblyName} {string.Join(" ", args)}");
 
                 // Preprocess all files
