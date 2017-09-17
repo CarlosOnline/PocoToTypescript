@@ -6,13 +6,27 @@ using System.Threading.Tasks;
 
 namespace Pocoyo
 {
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+    public class TestClassAttribute : Attribute
+    {
+        public string Name { get; set; }
+    }
+
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false)]
+    public class TestPropAttribute : Attribute
+    {
+        public string Name { get; set; }
+    }
+
     struct TestStruct
     {
         bool boolProp1 { get; set; }
     }
 
+    [TestClass]
     class TestClass
     {
+        [TestProp]
         public bool boolProp1 { get; set; }
     }
 

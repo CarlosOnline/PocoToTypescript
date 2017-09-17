@@ -1,3 +1,4 @@
+@if "%1" EQU "" echo Missing checkin comments && goto :EOF
 git status
 git add -A
 git commit -m "%*"

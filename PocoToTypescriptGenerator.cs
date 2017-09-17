@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using Microsoft.CodeAnalysis.CSharp;
@@ -22,8 +24,12 @@ namespace Pocoyo
                     return -1;
 
                 Log.SilentMode = Options.Silent;
-                Log.VerbosMode = Options.Verbose;
+                Log.VerbosMode = Options.Verbose  || Debugger.IsAttached;
                 PocoToTypescriptSpitter.DefaultNamespace = Options.Namespace;
+                if (Options.Excluded != null)
+                    PocoToTypescriptSpitter.Excluded = Options.Excluded.ToList();
+                if (Options.ExcludedAttributes != null)
+                    PocoToTypescriptSpitter.ExcludedAttributes = Options.ExcludedAttributes.ToList();
 
                 Log.Verbose($"{Utility.AssemblyName} {string.Join(" ", args)}");
 

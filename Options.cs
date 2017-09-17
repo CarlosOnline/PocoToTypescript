@@ -41,6 +41,12 @@ namespace Pocoyo
         [Option('n', "namespace", Required = false, HelpText = "Alternate namespace to use in typescript definitions. Defaults c# file's namespace.")]
         public string Namespace { get; set; }
 
+        [OptionList('e', "Excluded", Separator = ',', HelpText = "List of types that should be exclude (comma seperated). For example MyClass,MyEnum.")]
+        public IList<string> Excluded { get; set; }
+
+        [OptionList('f', "ExcludedAttributes", Separator = ',', HelpText = "List of Attributes that should be exclude (comma seperated). For example JsonIgnore,NotMapped.")]
+        public IList<string> ExcludedAttributes { get; set; }
+
         [ParserState]
         public IParserState LastParserState { get; set; }
 
@@ -78,6 +84,10 @@ options:
 
   -x, --skipPreProcess (Default: False) Skips pre-processing files for types.
 
+  -e, --excluded   List of excluded types (comma seperated)
+
+  -f, --excludedAttributes   List of excluded class / prop attributes (comma seperated)
+
   -v, --verbose    (Default: False) Prints all messages
 
   -s, --Silent     (Default: False) Turns off all console messages
@@ -88,7 +98,7 @@ Produced by Carlos Gomes (cgomes@iinet.com)
 
 Examples:
     {Utility.AssemblyName} Sample.cs -o Sample.d.ts
-    {Utility.AssemblyName} Sample.cs SampleFolder --output=Combined.d.ts --verbose
+    {Utility.AssemblyName} Sample.cs SampleFolder --output=Combined.d.ts --verbose --excluded=MyClass,MyEnum --excludedAttributes=JsonIgnore,NotMapped
 {errorMessage}
 ";
         }

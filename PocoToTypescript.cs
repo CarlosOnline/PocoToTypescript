@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -14,9 +15,12 @@ namespace Pocoyo
     public class PocoToTypescriptSpitter
     {
         public bool Silent { get; set; }
+        public bool PreprocessMode { get; set; }
         public bool DiscoverTypes { get; set; }
         public string OutputFile { get; set; }
         public static string DefaultNamespace { get; set; }
+        public static List<string> Excluded { get; set; } = new List<string>();
+        public static List<string> ExcludedAttributes { get; set; } = new List<string>();
 
         private int _indent = 0;
         private string Indent => " ".PadRight(_indent);
@@ -28,10 +32,19 @@ namespace Pocoyo
         private static string Namespace => string.Join(".", Namespaces);
 
         private static Dictionary<string, string> DiscoveredTypes { get; } = new Dictionary<string, string>();
+        private static Dictionary<string, string> ExcludedTypes { get; } = new Dictionary<string, string>();
 
-        internal static string ContainsType(string fullType)
+        internal static string IsKnownType(string fullType)
         {
             return DiscoveredTypes.ContainsKey(fullType) ? DiscoveredTypes[fullType] : null;
+        }
+
+        internal static string IsExcludedType(string fullType)
+        {
+            if (Excluded.Contains(fullType))
+                return fullType;
+
+            return ExcludedTypes.ContainsKey(fullType) ? ExcludedTypes[fullType] : null;
         }
 
         /// <summary>
@@ -51,8 +64,9 @@ namespace Pocoyo
 
             var info = new PocoToTypescriptSpitter
             {
+                PreprocessMode = true,
                 DiscoverTypes = true,
-                Silent = true,
+                Silent = !Debugger.IsAttached,
             };
             info.Process(root.Members);
             return true;
@@ -143,6 +157,12 @@ namespace Pocoyo
             if (syntaxItem == null || syntaxItem.Members.Count == 0)
                 return;
 
+            if (syntaxItem.IsExluded())
+            {
+                AddExcludedType(syntaxItem);
+                return;
+            }
+
             AddDiscoveredType(syntaxItem);
 
             AddLevel($@"export {syntaxItem.EnumKeyword} {syntaxItem.Identifier}");
@@ -173,25 +193,45 @@ namespace Pocoyo
             {
                 baseTypes.Add(syntaxItemType.Type.ToTypescript());
             }
-            return " extends " + string.Join(",", baseTypes);
+
+            // Dont add extends any
+            var extension = string.Join(",", baseTypes);
+            if (extension != "any")
+                return " extends " + string.Join(",", baseTypes);
+
+            return "";
         }
 
         private void Process(TypeDeclarationSyntax syntaxItem)
         {
-            if (syntaxItem == null || syntaxItem.Members.Count == 0 || syntaxItem.PropertyCount() == 0)
+            if (syntaxItem == null || syntaxItem.Members.Count == 0)
+                return;
+
+            if (syntaxItem.IsExluded())
+            {
+                AddExcludedType(syntaxItem);
+                return;
+            }
+
+            if (syntaxItem.PropertyCount() == 0)
                 return;
 
             AddDiscoveredType(syntaxItem);
 
-            AddLevel($@"export interface {syntaxItem.Identifier}{syntaxItem.TypeParameterList}{GetClassBase(syntaxItem.BaseList)}");
+            if (!PreprocessMode)
+                AddLevel($@"export interface {syntaxItem.Identifier}{syntaxItem.TypeParameterList}{GetClassBase(syntaxItem.BaseList)}");
 
             foreach (var memberItem in syntaxItem.Members)
             {
                 switch (memberItem)
                 {
-                    case PropertyDeclarationSyntax propItem:
-                        Process(propItem);
+                    case PropertyDeclarationSyntax declItem:
+                        Process(declItem);
                         break;
+                    case ClassDeclarationSyntax declItem:
+                        Process(declItem);
+                        break;
+                    case FieldDeclarationSyntax fieldItem:
                     case MethodDeclarationSyntax methodItem:
                     case ConstructorDeclarationSyntax constructorItem:
                         // skip methods etc
@@ -207,7 +247,10 @@ namespace Pocoyo
 
         private void Process(PropertyDeclarationSyntax syntaxItem)
         {
-            if (syntaxItem == null || syntaxItem.IsPrivate() || syntaxItem.IsInternal())
+            if (PreprocessMode)
+                return;
+
+            if (syntaxItem == null || syntaxItem.IsPrivate() || syntaxItem.IsInternal() || syntaxItem.IsExluded())
                 return;
 
             var publicOnly = syntaxItem.Parent.Kind() == SyntaxKind.ClassDeclaration;
@@ -215,33 +258,131 @@ namespace Pocoyo
                 AddLine($"{syntaxItem.Identifier.ToTypescript()} : {syntaxItem.Type.ToTypescript()};");
         }
 
-        private bool AddDiscoveredType(BaseTypeDeclarationSyntax syntaxItem)
+        private bool AddDiscoveredType(TypeDeclarationSyntax syntaxItem)
         {
-            if (!DiscoverTypes)
+            if (!DiscoverTypes || string.IsNullOrEmpty(Namespace))
                 return false;
 
-            if (!string.IsNullOrEmpty(Namespace))
+            var fullType = $"{Namespace}.{syntaxItem.Identifier.Text}{syntaxItem.TypeParameterList}";
+            return AddDiscoveredType(syntaxItem, fullType);
+        }
+
+        private bool AddDiscoveredType(BaseTypeDeclarationSyntax syntaxItem)
+        {
+            if (!DiscoverTypes || string.IsNullOrEmpty(Namespace))
+                return false;
+
+            var fullType = $"{Namespace}.{syntaxItem.Identifier.Text}{syntaxItem.Identifier}";
+            return AddDiscoveredType(syntaxItem, fullType);
+        }
+
+        private bool AddDiscoveredType(BaseTypeDeclarationSyntax syntaxItem, string fullType)
+        {
+            if (!DiscoverTypes || string.IsNullOrEmpty(fullType) || string.IsNullOrEmpty(Namespace))
+                return false;
+
+            //if (fullType.Contains("TestClass"))
+            //    Log.Info("found");
+
+            // Add Identifier
+            var identifierFullType = $"{Namespace}.{syntaxItem.Identifier.Text}";
+            if (fullType != identifierFullType)
             {
-                var fullType = $"{Namespace}.{syntaxItem.Identifier.Text}";
-                if (DiscoveredTypes.ContainsKey(fullType))
+                if (!DiscoveredTypes.ContainsKey(identifierFullType))
                 {
-                    Log.Error($"Discovered Type already found: {fullType}");
-                    return false;
+                    DiscoveredTypes[identifierFullType] = identifierFullType;
                 }
-
-                // Use default namespace if specified
-                if (!string.IsNullOrEmpty(DefaultNamespace))
-                    DiscoveredTypes[fullType] = fullType.Replace(Namespace, DefaultNamespace);
-                else
-                    DiscoveredTypes[fullType] = fullType;
-
-                return true;
             }
-            return false;
+
+            // Add Unqualified Identifier
+            if (fullType != syntaxItem.Identifier.Text)
+            {
+                if (!DiscoveredTypes.ContainsKey(syntaxItem.Identifier.Text))
+                {
+                    DiscoveredTypes[syntaxItem.Identifier.Text] = syntaxItem.Identifier.Text;
+                }
+            }
+
+            if (DiscoveredTypes.ContainsKey(fullType))
+            {
+                Log.Error($"Discovered Type already found: {fullType} {syntaxItem}");
+                return false;
+            }
+
+            // Use default namespace if specified
+            if (!string.IsNullOrEmpty(DefaultNamespace))
+                DiscoveredTypes[fullType] = fullType.Replace(Namespace, DefaultNamespace);
+            else
+                DiscoveredTypes[fullType] = fullType;
+
+            return true;
+        }
+
+        private bool AddExcludedType(TypeDeclarationSyntax syntaxItem)
+        {
+            if (!DiscoverTypes || string.IsNullOrEmpty(Namespace))
+                return false;
+
+            var fullType = $"{Namespace}.{syntaxItem.Identifier.Text}{syntaxItem.TypeParameterList}";
+            return AddExcludedType(syntaxItem, fullType);
+        }
+
+        private bool AddExcludedType(BaseTypeDeclarationSyntax syntaxItem)
+        {
+            if (!DiscoverTypes || string.IsNullOrEmpty(Namespace))
+                return false;
+
+            var fullType = $"{Namespace}.{syntaxItem.Identifier.Text}{syntaxItem.Identifier}";
+            return AddExcludedType(syntaxItem, fullType);
+        }
+
+        private bool AddExcludedType(BaseTypeDeclarationSyntax syntaxItem, string fullType)
+        {
+            if (!DiscoverTypes || string.IsNullOrEmpty(fullType) || string.IsNullOrEmpty(Namespace))
+                return false;
+
+            //if (fullType.Contains("TestClass"))
+            //    Log.Info("found");
+
+            // Add Identifier
+            var identifierFullType = $"{Namespace}.{syntaxItem.Identifier.Text}";
+            if (fullType != identifierFullType)
+            {
+                if (!ExcludedTypes.ContainsKey(identifierFullType))
+                {
+                    ExcludedTypes[identifierFullType] = identifierFullType;
+                }
+            }
+
+            // Add Unqualified Identifier
+            if (fullType != syntaxItem.Identifier.Text)
+            {
+                if (!ExcludedTypes.ContainsKey(syntaxItem.Identifier.Text))
+                {
+                    ExcludedTypes[syntaxItem.Identifier.Text] = syntaxItem.Identifier.Text;
+                }
+            }
+
+            if (ExcludedTypes.ContainsKey(fullType))
+            {
+                Log.Error($"Excluded Type already found: {fullType} {syntaxItem}");
+                return false;
+            }
+
+            // Use default namespace if specified
+            if (!string.IsNullOrEmpty(DefaultNamespace))
+                ExcludedTypes[fullType] = fullType.Replace(Namespace, DefaultNamespace);
+            else
+                ExcludedTypes[fullType] = fullType;
+
+            return true;
         }
 
         private void IncreaseLevel()
         {
+            if (Silent || PreprocessMode)
+                return;
+
             _indent += 3;
             if (_indent <= 0)
                 throw new Exception($"Invalid indent {_indent}");
@@ -249,6 +390,9 @@ namespace Pocoyo
 
         private void DecreaseLevel()
         {
+            if (Silent || PreprocessMode)
+                return;
+
             _indent -= 3;
             if (_indent < 0)
                 throw new Exception($"Invalid indent {_indent}");
@@ -256,7 +400,7 @@ namespace Pocoyo
 
         private void AddLevel(string line)
         {
-            if (Silent)
+            if (Silent || PreprocessMode)
                 return;
 
             var output = $"{Indent}{line} {OpenBrace}";
@@ -268,7 +412,7 @@ namespace Pocoyo
 
         private void AddLine(string line)
         {
-            if (Silent)
+            if (Silent || PreprocessMode)
                 return;
 
             var output = $"{Indent}{line}";
@@ -279,7 +423,7 @@ namespace Pocoyo
 
         private void CloseLevel(string line = "")
         {
-            if (Silent)
+            if (Silent || PreprocessMode)
                 return;
 
             DecreaseLevel();
@@ -351,7 +495,7 @@ namespace Pocoyo
                     {
                         if (syntaxItem.Identifier.Text == "dynamic")
                             return "any";
-                        
+
                         return syntaxItem.Identifier.Text;
                     }
 
@@ -360,39 +504,82 @@ namespace Pocoyo
                     return syntaxItem.ElementType.ToTypescript() + syntaxItem.RankSpecifiers.ToString();
 
                 case QualifiedNameSyntax syntaxItem:
-                {
-                    // check for Generic List
-                    // TODO: Other known types?
-                    if (syntaxItem.ToFullType().StartsWith("System.Collections.Generic.List<"))
-                        return syntaxItem.Right.ToTypescript();
+                    {
+                        // check for Generic List
+                        // TODO: Other known types?
+                        if (syntaxItem.ToFullType().StartsWith("System.Collections.Generic.List<"))
+                            return syntaxItem.Right.ToTypescript();
 
-                    var fullType = PocoToTypescriptSpitter.ContainsType(syntaxItem.ToFullType());
-                    if (!string.IsNullOrEmpty(fullType))
-                        return fullType;
+                        var fullType = PocoToTypescriptSpitter.IsKnownType(syntaxItem.ToFullType());
+                        if (!string.IsNullOrEmpty(fullType))
+                            return fullType;
 
-                    // Can't get full type so return any
-                    return "any";
-                }
+                        // Can't get full type so return any
+                        return "any";
+                    }
             }
 
             Log.Error($"unknown type: {type}");
             return type.ToString();
         }
 
+        public static string ToTypescript(this TypeArgumentListSyntax syntaxItem)
+        {
+            if (syntaxItem.Arguments.Count != 1)
+            {
+                Log.Error($"to many generic type args: {string.Join(",", syntaxItem.Arguments)}");
+                return "any";
+            }
+
+            var arg = syntaxItem.Arguments.First();
+            switch (arg)
+            {
+                case IdentifierNameSyntax typeItem:
+                    {
+                        if (PocoToTypescriptSpitter.IsKnownType(typeItem.Identifier.Text) != null)
+                            return typeItem.Identifier.Text;
+                        if (typeItem.Identifier.Text == "dynamic")
+                            return "any";
+                        if (PocoToTypescriptSpitter.IsExcludedType(typeItem.Identifier.Text) != null)
+                            return "any";
+                    }
+                    break;
+
+                case PredefinedTypeSyntax typeItem:
+                    return arg.ToTypescript();
+
+                default:
+                    return arg.ToTypescript();
+            }
+
+
+            Log.Error($"Unknown type: {syntaxItem} returning any");
+            return "any";
+        }
+
         public static string ToTypescript(this GenericNameSyntax syntax)
         {
             if (syntax.Identifier.Text == "List")
             {
-                if (syntax.TypeArgumentList.Arguments.Count != 1)
-                {
-                    Log.Error($"to many generic type args: {string.Join(",", syntax.TypeArgumentList.Arguments)}");
-                    return "any[]";
-                }
-
-                return syntax.TypeArgumentList.Arguments.First().ToTypescript() + "[]";
+                return syntax.TypeArgumentList.ToTypescript() + "[]";
             }
 
-            Log.Error($"unknown Generic: {syntax}");
+            if (syntax.Identifier.Text == "Expression")
+            {
+                return "any";
+            }
+
+            if (PocoToTypescriptSpitter.IsKnownType(syntax.Identifier.Text) != null)
+            {
+                return $"{syntax.Identifier.Text}<{syntax.TypeArgumentList.ToTypescript()}>";
+            }
+
+            if (PocoToTypescriptSpitter.IsExcludedType(syntax.Identifier.Text) != null)
+            {
+                return "any";
+            }
+
+            Log.Error($"unknown Generic: {syntax} mapped to any");
             return "any";
         }
 
@@ -436,7 +623,7 @@ namespace Pocoyo
                 switch (memberItem)
                 {
                     case PropertyDeclarationSyntax propItem:
-                        if (!propItem.IsPrivate() && !propItem.IsInternal())
+                        if (!propItem.IsPrivate() && !propItem.IsInternal() && !propItem.IsExluded())
                         {
                             if (!publicOnly || propItem.IsPublic())
                                 count++;
@@ -450,6 +637,49 @@ namespace Pocoyo
         public static string ToFullType(this QualifiedNameSyntax syntaxItem)
         {
             return $"{syntaxItem.Left}.{syntaxItem.Right}";
+        }
+
+        public static bool IsExluded(this BaseTypeDeclarationSyntax syntaxItem)
+        {
+            if (syntaxItem == null)
+                return true;
+
+            if (PocoToTypescriptSpitter.IsExcludedType(syntaxItem.Identifier.Text) != null)
+                return true;
+
+            return syntaxItem.AttributeLists.IsExluded();
+        }
+
+        public static bool IsExluded(this PropertyDeclarationSyntax syntaxItem)
+        {
+            if (syntaxItem == null)
+                return true;
+
+            return syntaxItem.AttributeLists.IsExluded();
+        }
+
+        public static bool IsExluded(this SyntaxList<AttributeListSyntax> attributeListSyntax)
+        {
+            if (PocoToTypescriptSpitter.ExcludedAttributes.Count == 0)
+                return false;
+
+            foreach (var attributeList in attributeListSyntax)
+            {
+                foreach (var attribute in attributeList.Attributes)
+                {
+                    switch (attribute.Name)
+                    {
+                        case IdentifierNameSyntax attribItem:
+                            {
+                                var found = PocoToTypescriptSpitter.ExcludedAttributes.FirstOrDefault(item => string.Equals(item, attribItem.Identifier.Text));
+                                if (found != null)
+                                    return true;
+                            }
+                            break;
+                    }
+                }
+            }
+            return false;
         }
     }
 
