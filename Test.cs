@@ -6,14 +6,8 @@ using System.Threading.Tasks;
 
 namespace Pocoyo
 {
-    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-    public class TestClassAttribute : Attribute
-    {
-        public string Name { get; set; }
-    }
-
-    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false)]
-    public class TestPropAttribute : Attribute
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Class, AllowMultiple = false)]
+    public class TestAttribAttribute : Attribute
     {
         public string Name { get; set; }
     }
@@ -23,10 +17,10 @@ namespace Pocoyo
         bool boolProp1 { get; set; }
     }
 
-    [TestClass]
+    [TestAttrib]
     class TestClass
     {
-        [TestProp]
+        [TestAttrib]
         public bool boolProp1 { get; set; }
     }
 

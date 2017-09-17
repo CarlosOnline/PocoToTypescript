@@ -23,7 +23,7 @@ namespace Pocoyo
         public static List<string> ExcludedAttributes { get; set; } = new List<string>();
 
         private int _indent = 0;
-        private string Indent => " ".PadRight(_indent);
+        private string Indent => _indent > 0 ? " ".PadRight(_indent) : "";
 
         private const string OpenBrace = "{";
         private const string CloseBrase = "}";
@@ -78,7 +78,6 @@ namespace Pocoyo
                 DiscoverTypes = true,
                 Silent = !Debugger.IsAttached,
             };
-            info.AddLevel($"/* {inputFile} */");
             info.Process(root.Members);
             return true;
         }
@@ -103,6 +102,12 @@ namespace Pocoyo
                 DiscoverTypes = discoverTypes,
                 OutputFile = outputFile,
             };
+            info.AddLine($@"/*
+==========================================
+{inputFile}
+==========================================
+*/
+");
             info.Process(root.Members);
             return true;
         }
@@ -176,12 +181,16 @@ namespace Pocoyo
 
             AddDiscoveredType(syntaxItem);
 
+            if (PreprocessMode)
+                return;
+
             AddLevel($@"export {syntaxItem.EnumKeyword} {syntaxItem.Identifier}");
 
             for (var idx = 0; idx < syntaxItem.Members.Count - 1; idx++)
             {
                 var memberItem = syntaxItem.Members[idx];
-                AddLine($"{memberItem.Identifier} = {idx},");
+                var value = memberItem.EqualsValue?.Value != null ? " = " + memberItem.EqualsValue.Value : "";
+                AddLine($"{memberItem.Identifier}{value},");
             }
 
             // Add final item no trailing comma
@@ -379,8 +388,8 @@ namespace Pocoyo
             if (!DiscoverTypes || string.IsNullOrEmpty(fullType) || string.IsNullOrEmpty(Namespace))
                 return false;
 
-            if (fullType.Contains("BaseDataObject"))
-                Log.Info("found");
+            //if (fullType.Contains("BaseDataObject"))
+            //    Log.Info("found");
 
             // Add Identifier
             var identifierFullType = $"{Namespace}.{syntaxItem.Identifier.Text}";

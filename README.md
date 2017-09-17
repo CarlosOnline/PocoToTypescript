@@ -1,30 +1,32 @@
 # PocoToTypescript
 
-Generates typescript definition files from c# files or a folder containing c# files.
 
-**InputFileOrFolder**:
-    Either an input c# file or folder containing c# files to generate typescript definition files.
-    Multiple files can be specified by adding to command line, for example Sample.cs Foo.cs Bar.cs
+PocoToTypescriptGenerator [c# file(s) / folder(s)] ...  [options]:
 
-## Options:
+Generates typescript definition files from files or folder containing c# files.
 
-  -o, --output     Output file or folder.  If folder, then uses input file name for output file name within output folder.
+##Options:
 
-  -x, --skipPreProcess (Default: False) Skips pre-processing files for types.
+  [c# file(s) / folder(s)] (Required) c# source files or folder containing c# files
+                           Specifies c# file(s) and/or c# folder(s) to convert to typescript definition files.
+                           Seperate files/folders by spaces.
 
-  -n, --namespace  (Default: null) Alternate namespace to use in typescript definitions. Defaults c# file's namespace.
+  o, output                (Required) - Output file or folder.  If folder, then
+                           uses input file name for output file name within
+                           output folder.
+  n, namespace             Alternate namespace to use in typescript
+                           definitions. Defaults c# file's namespace.
+  e, Excluded              List of types that should be exclude (comma
+                           seperated). For example MyClass,MyEnum.
+  f, ExcludedAttributes    List of Attributes that should be exclude (comma
+                           seperated). For example JsonIgnore,NotMapped.
+  c, commands              Read command line args in from specified file.
+  p, SkipPreprocess        (Default: False) Skips pre-processing files for
+                           types.
+  v, verbose               (Default: False) Prints all messages.
+  s, Silent                (Default: False) Turns off all console messages.
+  help                     Display this help screen.
 
-  -e, --excluded   List of excluded types (comma seperated)
-
-  -f, --excludedAttributes   List of excluded class / prop attributes (comma seperated)
-
-  -c, --commands   Read command line args from file
-
-  -v, --verbose    (Default: False) Prints all messages
-
-  -s, --Silent     (Default: False) Turns off all console messages
-
-  --help           Display this help screen.
 
 Produced by Carlos Gomes (cgomes@iinet.com)
 
@@ -54,13 +56,11 @@ Qualified types that are not found in the c# files with be given the **any** typ
 
 ### Nested classes / structs / enums not handled
 Nested classes, enums, structs are not handled.  Feel free to add and share the code please.
-
-### Nested classes / structs / enums not handled
-Nested classes, enums, structs are not handled.  Feel free to add and share the code please.
+Workaround: use --exclude command line option to exclude these types.
 
 ### All declarations of must have identical type parameters
 c# classes with similar bases can lead to dupliate typescript definitions.
-Workaround: use --exclude command line option to exclude this type
+Workaround: use --exclude command line option to exclude these types.
 
 _Typescript example_
 ```

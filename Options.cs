@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using CommandLine;
 using CommandLine.Text;
 
@@ -20,20 +18,9 @@ namespace Pocoyo
         [ValueList(typeof(List<string>))]
         public IList<string> Files { get; set; }
 
-        [Option('o', "output", Required = false, HelpText = "(Required) - Output file or folder, if folder file name matches input file.")]
+        [Option('o', "output", Required = false, HelpText = "(Required) - Output file or folder.  If folder, then uses input file name for output file name within output folder.")]
         public string OutputFile { get; set; }
         public string OutputFolder { get; set; }
-
-        [Option('v', "verbose", DefaultValue = false, HelpText = "Prints all messages.")]
-        public bool Verbose { get; set; }
-
-        [Option('s', "Silent", DefaultValue = false, HelpText = "Turns off all console messages.")]
-        public bool Silent { get; set; }
-
-        [Option('p', "SkipPreprocess", DefaultValue = false, HelpText = "Skips pre-processing files for types.")]
-        public bool SkipPreprocess { get; set; }
-
-        public bool PreProcess => !SkipPreprocess;
 
         /// <summary>
         /// Namespace to use in typescript definitions
@@ -47,10 +34,20 @@ namespace Pocoyo
         [OptionList('f', "ExcludedAttributes", Separator = ',', HelpText = "List of Attributes that should be exclude (comma seperated). For example JsonIgnore,NotMapped.")]
         public IList<string> ExcludedAttributes { get; set; }
 
-        [Option('c', "commands", Required = false, HelpText = "Read args in from command file.")]
+        [Option('c', "commands", Required = false, HelpText = "Read command line args in from specified file.")]
         public string CommandFile { get; set; }
 
+        [Option('p', "SkipPreprocess", DefaultValue = false, HelpText = "Skips pre-processing files for types.")]
+        public bool SkipPreprocess { get; set; }
+
+        [Option('v', "verbose", DefaultValue = false, HelpText = "Prints all messages.")]
+        public bool Verbose { get; set; }
+
+        [Option('s', "Silent", DefaultValue = false, HelpText = "Turns off all console messages.")]
+        public bool Silent { get; set; }
+
         public bool ReparseCommandFile { get; set; }
+        public bool PreProcess => !SkipPreprocess;
 
         [ParserState]
         public IParserState LastParserState { get; set; }
@@ -63,6 +60,20 @@ namespace Pocoyo
         [HelpOption]
         public string GetUsage()
         {
+            var helpText = new HelpText
+            {
+                Heading = $@"{Utility.AssemblyName} [c# file(s) / folder(s)] ...  [options]:
+
+Generates typescript definition files from files or folder containing c# files.
+
+Options:
+
+  [c# file(s) / folder(s)] (Required) c# source files or folder containing c# files
+                           Specifies c# file(s) and/or c# folder(s) to convert to typescript definition files.
+                           Seperate files/folders by spaces.",
+            };
+            helpText.AddOptions(this);
+
             var parseErrors = new HelpText().RenderParsingErrorsText(this, 3);
             var errorMessage = string.IsNullOrEmpty(parseErrors) && string.IsNullOrEmpty(_errorMessage) ? "" : $@"
 
@@ -75,31 +86,9 @@ namespace Pocoyo
 ========================================================
 ========================================================
 ";
-            return $@"{Utility.AssemblyName} [InputFileOrFolder] ...  [options below]:
 
-Generates typescript definition files from files or folder containing c# files.
-
-InputFileOrFolder:
-    Either an input c# file or folder containing c# files to generate typescript definition files.
-    Multiple files can be specified by adding to command line, for example Sample.cs Foo.cs Bar.cs
-
-options:
-
-  -o, --output     Output file or folder.  If folder, then uses input file name for output file name within output folder.
-
-  -x, --skipPreProcess (Default: False) Skips pre-processing files for types.
-
-  -e, --excluded   List of excluded types (comma seperated)
-
-  -f, --excludedAttributes   List of excluded class / prop attributes (comma seperated)
-
-  -c, --commands   Read command line args from file
-
-  -v, --verbose    (Default: False) Prints all messages
-
-  -s, --Silent     (Default: False) Turns off all console messages
-
-  --help           Display this help screen.
+            return $@"
+{helpText}
 
 Produced by Carlos Gomes (cgomes@iinet.com)
 
@@ -108,12 +97,6 @@ Examples:
     {Utility.AssemblyName} Sample.cs SampleFolder --output=Combined.d.ts --verbose --excluded=MyClass,MyEnum --excludedAttributes=JsonIgnore,NotMapped
 {errorMessage}
 ";
-        }
-
-        public string GetOriginalUsage()
-        {
-            return HelpText.AutoBuild(this,
-                (HelpText current) => HelpText.DefaultParsingErrorsHandler(this, current));
         }
 
         public List<string> InputFiles { get; } = new List<string>();
@@ -226,13 +209,6 @@ Examples:
                     }
                     Log.Error(options.GetUsage());
                 }
-
-#if Diagnostics
-                if (Debugger.IsAttached)
-                {
-                    Log.Info(options.GetOriginalUsage());
-                }
-#endif
             }
             catch (Exception ex)
             {
