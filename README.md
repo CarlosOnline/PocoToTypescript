@@ -1,11 +1,11 @@
 # PocoToTypescript
 
 
-PocoToTypescriptGenerator [c# file(s) / folder(s)] ...  [options]:
+PocoToTypescriptGenerator.exe [c# file(s) / folder(s)] ...  [options]:
 
 Generates typescript definition files from files or folder containing c# files.
 
-##Options:
+## Options:
 
   [c# file(s) / folder(s)] (Required) c# source files or folder containing c# files
                            Specifies c# file(s) and/or c# folder(s) to convert to typescript definition files.
