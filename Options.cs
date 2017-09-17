@@ -38,7 +38,7 @@ namespace Pocoyo
         /// <summary>
         /// Namespace to use in typescript definitions
         /// </summary>
-        [Option('n', "namespace", Required = false, HelpText = "Namespace to use in typescript definitions.")]
+        [Option('n', "namespace", Required = false, HelpText = "Alternate namespace to use in typescript definitions. Defaults c# file's namespace.")]
         public string Namespace { get; set; }
 
         [ParserState]
