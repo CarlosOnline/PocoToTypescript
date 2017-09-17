@@ -18,6 +18,8 @@ Generates typescript definition files from files or folder containing c# files.
                            definitions. Defaults c# file's namespace.
   e, Excluded              List of types that should be exclude (comma
                            seperated). For example MyClass,MyEnum.
+  k, Known                 List of known types which are not found in c# files
+                           (comma seperated). For example T as in MyClass<T>.
   f, ExcludedAttributes    List of Attributes that should be exclude (comma
                            seperated). For example JsonIgnore,NotMapped.
   c, commands              Read command line args in from specified file.

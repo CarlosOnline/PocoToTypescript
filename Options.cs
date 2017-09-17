@@ -34,6 +34,9 @@ namespace Pocoyo
         [OptionList('f', "ExcludedAttributes", Separator = ',', HelpText = "List of Attributes that should be exclude (comma seperated). For example JsonIgnore,NotMapped.")]
         public IList<string> ExcludedAttributes { get; set; }
 
+        [OptionList('k', "Known", Separator = ',', HelpText = "List of known types which are not found in c# files (comma seperated). For example T as in MyClass<T>.")]
+        public IList<string> KnownTypes { get; set; }
+
         [Option('c', "commands", Required = false, HelpText = "Read command line args in from specified file.")]
         public string CommandFile { get; set; }
 

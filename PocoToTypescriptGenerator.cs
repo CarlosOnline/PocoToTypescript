@@ -30,6 +30,8 @@ namespace Pocoyo
                     Pocoyo.Excluded = Options.Excluded.ToList();
                 if (Options.ExcludedAttributes != null)
                     Pocoyo.ExcludedAttributes = Options.ExcludedAttributes.ToList();
+                if (Options.KnownTypes != null)
+                    Pocoyo.KnownTypes = Options.KnownTypes.ToList();
 
                 Log.Verbose($"{Utility.AssemblyName} {string.Join(" ", args)}");
 

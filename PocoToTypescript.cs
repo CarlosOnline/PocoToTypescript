@@ -21,6 +21,7 @@ namespace Pocoyo
         public static string DefaultNamespace { get; set; }
         public static List<string> Excluded { get; set; } = new List<string>();
         public static List<string> ExcludedAttributes { get; set; } = new List<string>();
+        public static List<string> KnownTypes { get; set; } = new List<string>();
 
         private int _indent = 0;
         private string Indent => _indent > 0 ? " ".PadRight(_indent) : "";
@@ -36,7 +37,7 @@ namespace Pocoyo
 
         internal static bool IsKnownType(string fullType)
         {
-            return DiscoveredTypes.ContainsKey(fullType);
+            return DiscoveredTypes.ContainsKey(fullType) || KnownTypes.Contains(fullType);
         }
 
         internal static string MapKnownType(string fullType)
