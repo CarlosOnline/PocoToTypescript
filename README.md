@@ -50,3 +50,5 @@ _Examples:_
     PocoToTypescriptGenerator --commands=command_line_args_file.txt
     PocoToTypescriptGenerator --commands=options.json
 ```
+
+See wiki for more details - https://github.com/CarlosOnline/PocoToTypescript/wiki
