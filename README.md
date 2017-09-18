@@ -27,7 +27,8 @@ Generates typescript definition files from files or folder containing c# files.
   k, Known                 List of known types which are not found in c# files
                            (comma seperated). For example T as in MyClass<T>.
 
-  c, commands              Read command line args in from specified file.
+  c, commands              Read command line args in from specified file or
+                           json file.
 
   p, SkipPreprocess        (Default: False) Skips pre-processing files for
                            types.
