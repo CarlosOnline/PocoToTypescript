@@ -94,5 +94,36 @@ array[,];
 array[][];
 ```
 
+## --commands Json usage
+Sample json file that can be passed in using --commands.  Paths are relative to the working / current directory
+
+```
+{
+  "Files": [
+    "..\\Providers\\Dto.cs",
+    "..\\Providers\\ModelsFolder",
+    "..\\Providers\\Streaming\\Models\\IDataObject.cs",
+    "..\\Providers\\Folder2\\File.cs"
+  ],
+  "OutputFile": "typescript\\Combined.d.ts",
+  "Namespace": "AlternateNameSpace",
+  "Excluded": [
+    "BaseClassObject",
+    "IData"
+  ],
+  "ExcludedAttributes": [
+    "JsonIgnore"
+  ],
+  "KnownTypes": [
+    "T"
+  ],
+  "CommandFile": "typescript\\Combined.d.json",
+  "SkipPreprocess": false,
+  "Verbose": false,
+  "Silent": false
+}
+```
+
+
 
 
