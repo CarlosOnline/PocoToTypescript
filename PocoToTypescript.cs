@@ -22,7 +22,7 @@ namespace Pocoyo
         public static List<string> Excluded { get; set; } = new List<string>();
         public static List<string> ExcludedAttributes { get; set; } = new List<string>();
         public static List<string> KnownTypes { get; set; } = new List<string>();
-
+        
         private int _indent = 0;
         private string Indent => _indent > 0 ? " ".PadRight(_indent) : "";
 
@@ -63,7 +63,7 @@ namespace Pocoyo
         /// </summary>
         public static bool PreProcess(string inputFile)
         {
-            var textCode = Utility.ReadAllText(inputFile);
+            var textCode = SharedFile.ReadAllText(inputFile);
             if (string.IsNullOrEmpty(textCode))
             {
                 Log.Error($"empty c# input file: {inputFile}");
@@ -88,7 +88,7 @@ namespace Pocoyo
         /// </summary>
         public static bool Process(string inputFile, string outputFile, bool discoverTypes)
         {
-            var textCode = Utility.ReadAllText(inputFile);
+            var textCode = SharedFile.ReadAllText(inputFile);
             if (string.IsNullOrEmpty(textCode))
             {
                 Log.Error($"empty c# input file: {inputFile}");
@@ -103,12 +103,17 @@ namespace Pocoyo
                 DiscoverTypes = discoverTypes,
                 OutputFile = outputFile,
             };
-            info.AddLine($@"/*
+
+            if (Log.VerbosMode)
+            {
+                info.AddLine($@"/*
 ==========================================
 {inputFile}
 ==========================================
 */
 ");
+            }
+
             info.Process(root.Members);
             return true;
         }
@@ -455,7 +460,7 @@ namespace Pocoyo
             var output = $"{Indent}{line} {OpenBrace}";
             Log.Verbose(output);
             if (!string.IsNullOrEmpty(OutputFile))
-                Utility.AppendLine(OutputFile, output);
+                SharedFile.AppendLine(OutputFile, output);
             IncreaseLevel();
         }
 
@@ -467,7 +472,7 @@ namespace Pocoyo
             var output = $"{Indent}{line}";
             Log.Verbose(output);
             if (!string.IsNullOrEmpty(OutputFile))
-                Utility.AppendLine(OutputFile, output);
+                SharedFile.AppendLine(OutputFile, output);
         }
 
         private void CloseLevel(string line = "")
@@ -480,7 +485,7 @@ namespace Pocoyo
 ";
             Log.Verbose(output);
             if (!string.IsNullOrEmpty(OutputFile))
-                Utility.AppendLine(OutputFile, output);
+                SharedFile.AppendLine(OutputFile, output);
         }
     }
 

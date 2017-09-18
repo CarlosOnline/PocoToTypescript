@@ -4,10 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using SyntaxKind = Microsoft.CodeAnalysis.CSharp.SyntaxKind;
 
 namespace Pocoyo
 {
@@ -16,102 +12,23 @@ namespace Pocoyo
         public static string AssemblyName => Assembly.GetEntryAssembly().GetName().Name;
         public static string AssemblyLocation => Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
 
-        public static byte[] ReadAllBytes(string filePath, FileAccess fileAccess, FileShare fileShare)
+        public static string MakeRelativeUrl(string filePath, string referencePath)
         {
-            using (var fs = new FileStream(filePath, FileMode.OpenOrCreate, fileAccess, fileShare))
-            {
-                var buffer = new byte[fs.Length];
-                var read = fs.Read(buffer, 0, (int)fs.Length);
-                if (read != (int)fs.Length)
-                    throw new Exception(
-                        $"Read bytes error. Expected: {read} Actual: {fs.Length} from {filePath}");
-                return buffer;
-            }
+            if (string.IsNullOrEmpty(filePath))
+                return null;
+
+            var fileUri = new Uri(filePath);
+            var referenceUri = new Uri(referencePath + "\\.");
+            return referenceUri.MakeRelativeUri(fileUri).ToString();
         }
 
-        public static string ReadAllText(string filePath, FileAccess fileAccess = FileAccess.ReadWrite, FileShare fileShare = FileShare.ReadWrite)
+        public static string MakeRelativePath(string filePath, string referencePath)
         {
-            var buffer = ReadAllBytes(filePath, fileAccess, fileShare);
-            return Encoding.UTF8.GetString(buffer);
-        }
+            if (string.IsNullOrEmpty(filePath))
+                return null;
 
-        public static bool WriteAllBytes(string filePath, byte[] buffer, SeekOrigin seek = SeekOrigin.Begin)
-        {
-            var folder = Path.GetDirectoryName(filePath);
-            if (!Directory.Exists(folder))
-                Directory.CreateDirectory(folder);
-
-            DateTime? createTime = null;
-            try
-            {
-                if (!File.Exists(filePath))
-                    createTime = DateTime.Now;
-            }
-            catch
-            {
-            }
-
-            for (var idx = 0; idx < 3; idx++)
-            {
-                try
-                {
-                    using (var fs = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None))
-                    {
-                        fs.Seek(0, seek);
-                        fs.Write(buffer, 0, buffer.Length);
-                        if (seek == SeekOrigin.Begin)
-                            fs.SetLength(buffer.Length);
-                        fs.Flush();
-                    }
-
-                    if (createTime != null)
-                    {
-                        // Set creation time correctly for new files
-                        var fi = new FileInfo(filePath)
-                        {
-                            CreationTime = createTime.Value
-                        };
-                    }
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    string msg;
-                    try
-                    {
-                        msg = Encoding.UTF8.GetString(buffer);
-                    }
-                    catch
-                    {
-                        msg = "BYTES";
-                    }
-
-                    Log.Info($"Exception: {filePath} {ex.Message} {buffer.Length} {msg.Length} {msg.Substring(0, Math.Min(100, msg.Length))}");
-                }
-            }
-
-            return false;
-        }
-
-        public static bool WriteAllText(string filePath, string text, Encoding encoding = null)
-        {
-            encoding = encoding ?? Encoding.UTF8;
-            var buffer = encoding.GetBytes(text);
-            return WriteAllBytes(filePath, buffer);
-        }
-
-        public static void AppendAllText(string filePath, string text, Encoding encoding = null)
-        {
-            encoding = encoding ?? Encoding.UTF8;
-            var buffer = encoding.GetBytes(text);
-            WriteAllBytes(filePath, buffer, SeekOrigin.End);
-        }
-
-        public static void AppendLine(string filePath, string text, Encoding encoding = null)
-        {
-            encoding = encoding ?? Encoding.UTF8;
-            var buffer = encoding.GetBytes(text + "\r\n");
-            WriteAllBytes(filePath, buffer, SeekOrigin.End);
+            var relativeUrl = MakeRelativeUrl(filePath, referencePath);
+            return relativeUrl.Replace("file://", "").Replace("/", "\\");
         }
     }
 
@@ -183,6 +100,42 @@ namespace Pocoyo
             try
             {
                 var msg = $"ERROR: {message}";
+                Console.WriteLine(msg);
+                Debug.WriteLine(msg);
+            }
+            catch
+            {
+                // Ignored
+            }
+            if (Debugger.IsAttached)
+                Debugger.Break();
+        }
+
+        public static void Exception(string message, Exception ex)
+        {
+            if (SilentMode) return;
+
+            try
+            {
+                var msg = $"EXCEPTION: {message} {ex}";
+                Console.WriteLine(msg);
+                Debug.WriteLine(msg);
+            }
+            catch
+            {
+                // Ignored
+            }
+            if (Debugger.IsAttached)
+                Debugger.Break();
+        }
+
+        public static void Exception(Exception ex)
+        {
+            if (SilentMode) return;
+
+            try
+            {
+                var msg = $"EXCEPTION: {ex}";
                 Console.WriteLine(msg);
                 Debug.WriteLine(msg);
             }
@@ -308,4 +261,106 @@ namespace Pocoyo
             }
         }
     }
+
+    public static class SharedFile
+    {
+        public static byte[] ReadAllBytes(string filePath, FileAccess fileAccess, FileShare fileShare)
+        {
+            using (var fs = new FileStream(filePath, FileMode.OpenOrCreate, fileAccess, fileShare))
+            {
+                var buffer = new byte[fs.Length];
+                var read = fs.Read(buffer, 0, (int)fs.Length);
+                if (read != (int)fs.Length)
+                    throw new Exception(
+                        $"Read bytes error. Expected: {read} Actual: {fs.Length} from {filePath}");
+                return buffer;
+            }
+        }
+
+        public static string ReadAllText(string filePath, FileAccess fileAccess = FileAccess.ReadWrite, FileShare fileShare = FileShare.ReadWrite)
+        {
+            var buffer = ReadAllBytes(filePath, fileAccess, fileShare);
+            return Encoding.UTF8.GetString(buffer);
+        }
+
+        public static bool WriteAllBytes(string filePath, byte[] buffer, SeekOrigin seek = SeekOrigin.Begin)
+        {
+            var folder = Path.GetDirectoryName(filePath);
+            if (!Directory.Exists(folder))
+                Directory.CreateDirectory(folder);
+
+            DateTime? createTime = null;
+            try
+            {
+                if (!File.Exists(filePath))
+                    createTime = DateTime.Now;
+            }
+            catch
+            {
+            }
+
+            for (var idx = 0; idx < 3; idx++)
+            {
+                try
+                {
+                    using (var fs = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None))
+                    {
+                        fs.Seek(0, seek);
+                        fs.Write(buffer, 0, buffer.Length);
+                        if (seek == SeekOrigin.Begin)
+                            fs.SetLength(buffer.Length);
+                        fs.Flush();
+                    }
+
+                    if (createTime != null)
+                    {
+                        // Set creation time correctly for new files
+                        var fi = new FileInfo(filePath)
+                        {
+                            CreationTime = createTime.Value
+                        };
+                    }
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    string msg;
+                    try
+                    {
+                        msg = Encoding.UTF8.GetString(buffer);
+                    }
+                    catch
+                    {
+                        msg = "BYTES";
+                    }
+
+                    Log.Info($"Exception: {filePath} {ex.Message} {buffer.Length} {msg.Length} {msg.Substring(0, Math.Min(100, msg.Length))}");
+                }
+            }
+
+            return false;
+        }
+
+        public static bool WriteAllText(string filePath, string text, Encoding encoding = null)
+        {
+            encoding = encoding ?? Encoding.UTF8;
+            var buffer = encoding.GetBytes(text);
+            return WriteAllBytes(filePath, buffer);
+        }
+
+        public static void AppendAllText(string filePath, string text, Encoding encoding = null)
+        {
+            encoding = encoding ?? Encoding.UTF8;
+            var buffer = encoding.GetBytes(text);
+            WriteAllBytes(filePath, buffer, SeekOrigin.End);
+        }
+
+        public static void AppendLine(string filePath, string text, Encoding encoding = null)
+        {
+            encoding = encoding ?? Encoding.UTF8;
+            var buffer = encoding.GetBytes(text + "\r\n");
+            WriteAllBytes(filePath, buffer, SeekOrigin.End);
+        }
+    }
+
 }

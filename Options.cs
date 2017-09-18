@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using CommandLine;
 using CommandLine.Text;
+using Newtonsoft.Json;
 
 namespace Pocoyo
 {
@@ -20,7 +21,6 @@ namespace Pocoyo
 
         [Option('o', "output", Required = false, HelpText = "(Required) - Output file or folder.  If folder, then uses input file name for output file name within output folder.")]
         public string OutputFile { get; set; }
-        public string OutputFolder { get; set; }
 
         /// <summary>
         /// Namespace to use in typescript definitions
@@ -49,10 +49,20 @@ namespace Pocoyo
         [Option('s', "Silent", DefaultValue = false, HelpText = "Turns off all console messages.")]
         public bool Silent { get; set; }
 
-        public bool ReparseCommandFile { get; set; }
+        [JsonIgnore]
+        public List<string> InputFiles { get; set; } = new List<string>();
+
+        [JsonIgnore]
+        public string OutputFolder { get; set; }
+
+        [JsonIgnore]
+        public string OutputFilePath => string.IsNullOrEmpty(OutputFolder) ? OutputFile : null;
+
+        [JsonIgnore]
         public bool PreProcess => !SkipPreprocess;
 
         [ParserState]
+        [JsonIgnore]
         public IParserState LastParserState { get; set; }
 
         private void LogError(string errorMessage)
@@ -104,8 +114,6 @@ Examples:
 ";
         }
 
-        public List<string> InputFiles { get; } = new List<string>();
-
         private bool ProcessArgs(bool ignoreCommandFile = false)
         {
             if (!ignoreCommandFile)
@@ -118,7 +126,6 @@ Examples:
                         return false;
                     }
 
-                    ReparseCommandFile = true;
                     return false;
                 }
             }
@@ -160,25 +167,21 @@ Examples:
                 return false;
             }
 
-            if (!string.IsNullOrEmpty(OutputFile))
-            {
-                var outputFilePath = Path.GetFullPath(OutputFile);
-                var outputFolder = Path.GetDirectoryName(outputFilePath);
-                Directory.CreateDirectory(outputFolder);
+            var outputFilePath = Path.GetFullPath(OutputFile);
+            var outputFolder = Path.GetDirectoryName(outputFilePath);
+            Directory.CreateDirectory(outputFolder);
 
-                if (Directory.Exists(outputFilePath))
+            if (Directory.Exists(outputFilePath))
+            {
+                OutputFolder = outputFilePath;
+            }
+            else
+            {
+                if (File.Exists(outputFilePath))
                 {
-                    OutputFolder = outputFilePath;
-                    OutputFile = null;
+                    File.Delete(outputFilePath);
                 }
-                else
-                {
-                    if (File.Exists(outputFilePath))
-                    {
-                        File.Delete(outputFilePath);
-                    }
-                    OutputFile = outputFilePath;
-                }
+                OutputFile = outputFilePath;
             }
 
             if (InputFiles.Count == 0)
@@ -187,7 +190,95 @@ Examples:
                 return false;
             }
 
+            if (string.IsNullOrEmpty(CommandFile) || !CommandFile.ToLower().EndsWith(".json"))
+                SerializeToJson();
+
             return true;
+        }
+
+        private void SerializeToJson()
+        {
+            try
+            {
+                var options = (Options)this.MemberwiseClone();
+                var outputFolder = !string.IsNullOrEmpty(OutputFolder) ? OutputFolder : Path.GetDirectoryName(OutputFilePath);
+                var outputFileName = !string.IsNullOrEmpty(OutputFolder) ? "pocoyo.json" : Path.GetFileNameWithoutExtension(OutputFilePath) + ".json";
+
+#if !SkipMakeRelative
+                var relativePath = Environment.CurrentDirectory;
+                options.OutputFile = Utility.MakeRelativePath(options.OutputFile, relativePath);
+                options.CommandFile = Utility.MakeRelativePath(options.CommandFile, relativePath);
+
+                var paths = new List<string>();
+                foreach (var filePath in options.Files)
+                {
+                    paths.Add(Utility.MakeRelativePath(filePath, relativePath));
+                }
+                options.Files = paths;
+#endif
+
+                var optionsJsonPath = Path.Combine(outputFolder, outputFileName);
+                if (!string.Equals(CommandFile, optionsJsonPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    Json.SerializeToFile(options, optionsJsonPath);
+                    if (!options.Silent)
+                        Log.Info($"Generated --commands file: {optionsJsonPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Exception(ex);
+            }
+        }
+
+        /// <summary>
+        /// Gets options from command line file - text or json
+        /// </summary>
+        public Options GetOptionsFromCommandFile()
+        {
+            if (string.IsNullOrEmpty(CommandFile))
+                return null;
+
+            CommandFile = Path.GetFullPath(CommandFile);
+            if (!File.Exists(CommandFile))
+            {
+                LogError($"Missing --commands file: {CommandFile}");
+                return null;
+            }
+
+            Options options = null;
+
+            if (Path.GetExtension(CommandFile) == ".json")
+            {
+                // Get from json
+                options = Json.TryDeserializeFromFile<Options>(CommandFile);
+            }
+            else
+            {
+                // Re-parse with command file
+                var commandArgs = GetCommandFileArgs(CommandFile);
+
+                options = new Options();
+                if (!Parser.Default.ParseArguments(commandArgs, options))
+                    options = null;
+            }
+
+            if (options != null)
+            {
+                if (string.IsNullOrEmpty(options.CommandFile))
+                    options.CommandFile = CommandFile;
+
+                if (Verbose)
+                    options.Verbose = true;
+
+                if (Silent)
+                    options.Silent = true;
+
+                if (options.ProcessArgs(true))
+                    return options;
+            }
+
+            return null;
         }
 
         public static Options ParseArgs(string[] args)
@@ -200,18 +291,11 @@ Examples:
                     if (options.ProcessArgs())
                         return options;
 
-                    if (options.ReparseCommandFile)
-                    {
-                        // Re-parse with command file
-                        var commandArgs = GetCommandFileArgs(options.CommandFile);
+                    // Try options from command line file
+                    var commandLineOptions = options.GetOptionsFromCommandFile();
+                    if (commandLineOptions != null)
+                        return commandLineOptions;
 
-                        options = new Options();
-                        if (Parser.Default.ParseArguments(commandArgs, options))
-                        {
-                            if (options.ProcessArgs(true))
-                                return options;
-                        }
-                    }
                     Log.Error(options.GetUsage());
                 }
             }
@@ -231,6 +315,11 @@ Examples:
                 trimmed.Add(arg.Trim());
             }
             return trimmed.ToArray();
+        }
+
+        public override string ToString()
+        {
+            return Json.Serialize(this);
         }
     }
 }

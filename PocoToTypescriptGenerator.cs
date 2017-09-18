@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -17,14 +18,15 @@ namespace Pocoyo
         {
             try
             {
-                Directory.SetCurrentDirectory(Utility.AssemblyLocation);
-
                 Options = Options.ParseArgs(args);
                 if (Options == null)
                     return -1;
 
                 Log.SilentMode = Options.Silent;
-                Log.VerbosMode = Options.Verbose  || Debugger.IsAttached;
+                Log.VerbosMode = Options.Verbose; //  || Debugger.IsAttached;
+                if (Log.VerbosMode)
+                    Log.Info($"Options: {Options}");
+
                 Pocoyo.DefaultNamespace = Options.Namespace;
                 if (Options.Excluded != null)
                     Pocoyo.Excluded = Options.Excluded.ToList();
@@ -45,20 +47,30 @@ namespace Pocoyo
                 }
 
                 // Generate typescript definition files
+                var outputFiles = new List<string>();
 
                 foreach (var inputFile in Options.InputFiles)
                 {
-                    var outputFilePath = GetOutputFilePath(inputFile);
+                    var outputFilePath = GetTempOutputFilePath(inputFile);
+                    var realOutputFilePath = outputFilePath.Replace(".temp", "");
+                    if (!outputFiles.Contains(outputFilePath))
+                        outputFiles.Add(outputFilePath);
 
                     Pocoyo.Process(inputFile, outputFilePath, !Options.PreProcess);
 
-                    if (!string.Equals(Options.OutputFile, outputFilePath))
-                        Log.Info($"Generated: {outputFilePath}");
+                    if (!string.Equals(Options.OutputFilePath, realOutputFilePath))
+                        Log.Info($"Generated: {realOutputFilePath}");
+                }
+
+                foreach (var outputFile in outputFiles)
+                {
+                    var realOutputFilePath = outputFile.Replace(".temp", "");
+                    File.Move(outputFile, realOutputFilePath);
                 }
 
                 // Log combined output file if any
-                if (!string.IsNullOrEmpty(Options.OutputFile))
-                    Log.Info($"Generated {Options.OutputFile}");
+                if (!string.IsNullOrEmpty(Options.OutputFilePath))
+                    Log.Info($"Generated {Options.OutputFilePath}");
 
                 return 0;
             }
@@ -72,16 +84,18 @@ namespace Pocoyo
         /// <summary>
         /// Returns OutputFile if specified or output file from OutputFolder based on input file
         /// </summary>
-        private static string GetOutputFilePath(string inputFile)
+        private static string GetTempOutputFilePath(string inputFile)
         {
-            if (!string.IsNullOrEmpty(Options.OutputFile))
-                return Options.OutputFile;
+            if (!string.IsNullOrEmpty(Options.OutputFolder))
+            {
+                var outputFilePath = Path.Combine(Options.OutputFolder, Path.GetFileNameWithoutExtension(inputFile) + ".d.ts");
+                if (File.Exists(outputFilePath))
+                    File.Delete(outputFilePath);
 
-            var outputFilePath = Path.Combine(Options.OutputFolder, Path.GetFileNameWithoutExtension(inputFile) + ".d.ts");
-            if (File.Exists(outputFilePath))
-                File.Delete(outputFilePath);
+                return outputFilePath + ".temp";
+            }
 
-            return outputFilePath;
+            return Options.OutputFilePath + ".temp";
         }
 
     }
