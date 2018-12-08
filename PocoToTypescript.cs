@@ -22,7 +22,7 @@ namespace Pocoyo
         public static List<string> Excluded { get; set; } = new List<string>();
         public static List<string> ExcludedAttributes { get; set; } = new List<string>();
         public static List<string> KnownTypes { get; set; } = new List<string>();
-        
+
         private int _indent = 0;
         private string Indent => _indent > 0 ? " ".PadRight(_indent) : "";
 
@@ -115,6 +115,15 @@ namespace Pocoyo
             }
 
             info.Process(root.Members);
+
+            if (Log.VerbosMode)
+            {
+                info.AddLine($@"/*
+==========================================
+==========================================
+*/
+");
+            }
             return true;
         }
 
@@ -622,8 +631,20 @@ namespace Pocoyo
             return "[]";
         }
 
-        public static string ToTypescript(this TypeArgumentListSyntax syntaxItem)
+        public static string ToTypescript(this TypeArgumentListSyntax syntaxItem, bool dictionary = false)
         {
+            if (dictionary && syntaxItem.Arguments.Count == 2)
+            {
+                var key = syntaxItem.Arguments[0].ToTypescript();
+                var value = syntaxItem.Arguments[1].ToTypescript();
+
+                if (string.Equals(key, "string", StringComparison.OrdinalIgnoreCase))
+                {
+                    return $"Map<{value}>";
+
+                }
+            }
+
             if (syntaxItem.Arguments.Count != 1)
             {
                 Log.Warn($"to many generic type args: {string.Join(",", syntaxItem.Arguments)} from {syntaxItem}");
@@ -636,6 +657,11 @@ namespace Pocoyo
 
         public static string ToTypescript(this GenericNameSyntax syntaxItem)
         {
+            if (syntaxItem.Identifier.Text == "Dictionary")
+            {
+                return syntaxItem.TypeArgumentList.ToTypescript(true);
+            }
+
             if (syntaxItem.Identifier.Text == "List")
             {
                 return syntaxItem.TypeArgumentList.ToTypescript() + "[]";

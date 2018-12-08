@@ -182,8 +182,11 @@ namespace Pocoyo
             {
                 // Ignored
             }
+
+#if Diagnostic
             if (Debugger.IsAttached)
                 Debugger.Break();
+#endif
         }
 
         public static void Verbose(string message, params object[] args)

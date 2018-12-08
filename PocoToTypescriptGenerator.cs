@@ -54,7 +54,10 @@ namespace Pocoyo
                     var outputFilePath = GetTempOutputFilePath(inputFile);
                     var realOutputFilePath = outputFilePath.Replace(".temp", "");
                     if (!outputFiles.Contains(outputFilePath))
+                    {
                         outputFiles.Add(outputFilePath);
+                        File.Delete(outputFilePath);
+                    }
 
                     Pocoyo.Process(inputFile, outputFilePath, !Options.PreProcess);
 
