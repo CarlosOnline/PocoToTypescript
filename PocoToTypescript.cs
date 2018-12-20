@@ -152,9 +152,17 @@ namespace Pocoyo
                 case StructDeclarationSyntax syntaxItem:
                     Process(syntaxItem);
                     return;
+                case DelegateDeclarationSyntax syntaxItem:
+                    Process(syntaxItem);
+                    return;
             }
 
-            Log.Warn($"Unhandled type: {memberItem.GetType().Name} {memberItem.Kind()}");
+            Log.Warn($"Unhandled type: {memberItem.GetType().Name} {memberItem.Kind()}          => {memberItem}");
+        }
+
+        public void Process(DelegateDeclarationSyntax members)
+        {
+            // Nothing to do for delegates
         }
 
         public void Process(IEnumerable<MemberDeclarationSyntax> members)
@@ -558,7 +566,7 @@ namespace Pocoyo
                 return "string";
 
             if (syntaxItem.IsKnownType())
-                return syntaxItem.Identifier.Text;
+                return "any";
 
             // Don't warn for common generic <T> argument
             if (syntaxItem.Identifier.Text == "T")
@@ -640,7 +648,7 @@ namespace Pocoyo
 
                 if (string.Equals(key, "string", StringComparison.OrdinalIgnoreCase))
                 {
-                    return $"Map<{value}>";
+                    return $"Map<string, {value}>";
 
                 }
             }
