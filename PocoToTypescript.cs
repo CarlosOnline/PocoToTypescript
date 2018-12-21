@@ -40,6 +40,11 @@ namespace Pocoyo
             return DiscoveredTypes.ContainsKey(fullType) || KnownTypes.Contains(fullType);
         }
 
+        internal static bool IsSpecifiedKnownType(string fullType)
+        {
+            return KnownTypes.Contains(fullType);
+        }
+
         internal static string MapKnownType(string fullType)
         {
             return DiscoveredTypes.ContainsKey(fullType) ? DiscoveredTypes[fullType] : null;
@@ -565,12 +570,15 @@ namespace Pocoyo
             if (string.Equals(syntaxItem.Identifier.Text, "timespan", StringComparison.OrdinalIgnoreCase))
                 return "string";
 
+            if (syntaxItem.IsSpecifiedKnownType())
+                return "any";
+
             if (syntaxItem.IsKnownType())
                 return syntaxItem.Identifier.Text;
 
             // Don't warn for common generic <T> argument
             if (syntaxItem.Identifier.Text == "T")
-                return "any";
+                return "T";
 
             Log.Warn($"Uknown identifier {syntaxItem}");
             return "any";
@@ -680,6 +688,11 @@ namespace Pocoyo
                 return "any";
             }
 
+            if (syntaxItem.IsSpecifiedKnownType())
+            {
+                return "any";
+            }
+
             if (syntaxItem.IsKnownType())
             {
                 return $"{syntaxItem.Identifier.Text}<{syntaxItem.TypeArgumentList.ToTypescript()}>";
@@ -768,6 +781,21 @@ namespace Pocoyo
         public static bool IsKnownType(this GenericNameSyntax syntaxItem)
         {
             return Pocoyo.IsKnownType(syntaxItem.Identifier.Text);
+        }
+
+        public static bool IsSpecifiedKnownType(this BaseTypeDeclarationSyntax syntaxItem)
+        {
+            return Pocoyo.IsSpecifiedKnownType(syntaxItem.Identifier.Text);
+        }
+
+        public static bool IsSpecifiedKnownType(this IdentifierNameSyntax syntaxItem)
+        {
+            return Pocoyo.IsSpecifiedKnownType(syntaxItem.Identifier.Text);
+        }
+
+        public static bool IsSpecifiedKnownType(this GenericNameSyntax syntaxItem)
+        {
+            return Pocoyo.IsSpecifiedKnownType(syntaxItem.Identifier.Text);
         }
 
         public static bool IsExcluded(this BaseTypeDeclarationSyntax syntaxItem)
