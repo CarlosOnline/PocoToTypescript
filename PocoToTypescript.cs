@@ -566,7 +566,7 @@ namespace Pocoyo
                 return "string";
 
             if (syntaxItem.IsKnownType())
-                return "any";
+                return syntaxItem.Identifier.Text;
 
             // Don't warn for common generic <T> argument
             if (syntaxItem.Identifier.Text == "T")
