@@ -3,21 +3,22 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Text;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Threading;
 
 namespace Pocoyo
 {
     public static class PocoToTypescriptGenerator
     {
+        private static string TempExtension => $".temp.{Process.GetCurrentProcess().Id}";
+
         public static Options Options { get; private set; }
 
         public static int Main(string[] args)
         {
             try
             {
+                Console.WriteLine(nameof(PocoToTypescriptGenerator) + ".exe " + string.Join(" ", args));
+
                 Options = Options.ParseArgs(args);
                 if (Options == null)
                     return -1;
@@ -52,11 +53,11 @@ namespace Pocoyo
                 foreach (var inputFile in Options.InputFiles)
                 {
                     var outputFilePath = GetTempOutputFilePath(inputFile);
-                    var realOutputFilePath = outputFilePath.Replace(".temp", "");
+                    var realOutputFilePath = outputFilePath.Replace(TempExtension, "");
                     if (!outputFiles.Contains(outputFilePath))
                     {
                         outputFiles.Add(outputFilePath);
-                        File.Delete(outputFilePath);
+                        Utility.TryDeleteFile(outputFilePath);
                     }
 
                     Pocoyo.Process(inputFile, outputFilePath, !Options.PreProcess);
@@ -65,22 +66,80 @@ namespace Pocoyo
                         Log.Info($"Generated: {realOutputFilePath}");
                 }
 
+                if (Options.TypescriptFiles != null)
+                {
+                    foreach (var inputFile in Options.TypescriptFiles)
+                    {
+                        if (File.Exists(inputFile))
+                        {
+                            var outputFilePath = GetTempOutputFilePath(inputFile);
+                            if (!outputFiles.Contains(outputFilePath))
+                            {
+                                outputFiles.Add(outputFilePath);
+                                Utility.TryDeleteFile(outputFilePath);
+                            }
+
+                            var contents = SharedFile.ReadAllText(inputFile);
+                            SharedFile.AppendAllText(outputFilePath, contents);
+
+                            Execute(outputFilePath, () =>
+                            {
+                                SharedFile.AppendAllText(outputFilePath, contents);
+                            });
+                        }
+                    }
+                }
+
                 foreach (var outputFile in outputFiles)
                 {
-                    var realOutputFilePath = outputFile.Replace(".temp", "");
-                    File.Move(outputFile, realOutputFilePath);
+                    var realOutputFilePath = outputFile.Replace(TempExtension, "");
+
+                    Execute(realOutputFilePath, () =>
+                    {
+                        Utility.TryMoveFile(outputFile, realOutputFilePath);
+                        Utility.TryDeleteFile(outputFile);
+                    });
                 }
 
                 // Log combined output file if any
                 if (!string.IsNullOrEmpty(Options.OutputFilePath))
+                {
                     Log.Info($"Generated {Options.OutputFilePath}");
+
+                    var pocoyoDataFilePath = Path.ChangeExtension(Options.OutputFilePath, ".Pocoyo.json");
+
+                    Execute(pocoyoDataFilePath, () =>
+                    {
+                        var data = new PocoyoData();
+                        data.SaveToData(pocoyoDataFilePath);
+                    });
+                }
 
                 return 0;
             }
             catch (Exception ex)
             {
-                Log.Error($"Exception: {ex}");
+                Log.Error($"{nameof(Main)} Exception: {ex}");
                 return -2;
+            }
+        }
+
+        /// <summary>
+        /// Lock output operations for multi target case
+        /// </summary>
+        private static void Execute(string name, Action action)
+        {
+            try
+            {
+                var semaphore = new Semaphore(1, 1, name.Replace(":", ".").Replace("\\", "."));
+                using (new SemaphoreLock(semaphore))
+                {
+                    action();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"{name} {ex.Message}");
             }
         }
 
@@ -95,11 +154,12 @@ namespace Pocoyo
                 if (File.Exists(outputFilePath))
                     File.Delete(outputFilePath);
 
-                return outputFilePath + ".temp";
+                return outputFilePath + TempExtension;
             }
 
-            return Options.OutputFilePath + ".temp";
+            return Options.OutputFilePath + TempExtension;
         }
+
 
     }
 }

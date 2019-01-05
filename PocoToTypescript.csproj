@@ -177,7 +177,9 @@
     <Compile Include="Options.cs" />
     <Compile Include="PocoToTypescript.cs" />
     <Compile Include="PocoToTypescriptGenerator.cs" />
+    <Compile Include="PocoyoData.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SemaphoreLock.cs" />
     <Compile Include="Test\Test2.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>

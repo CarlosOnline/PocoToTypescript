@@ -19,6 +19,13 @@ namespace Pocoyo
         [ValueList(typeof(List<string>))]
         public IList<string> Files { get; set; }
 
+        /// <summary>
+        /// Additional Typescript Files to include
+        /// </summary>
+        [Option('t', "AdditionalFiles", Required = false, HelpText = "Additional typescript files to include")]
+        public string AdditionalFiles { get; set; }
+        public string[] TypescriptFiles => AdditionalFiles?.Split(',').Select(item => Path.GetFullPath(item.Trim())).ToArray();
+
         [Option('o', "output", Required = false, HelpText = "(Required) - Output file or folder.  If folder, then uses input file name for output file name within output folder.")]
         public string OutputFile { get; set; }
 
@@ -39,6 +46,9 @@ namespace Pocoyo
 
         [Option('c', "commands", Required = false, HelpText = "Read command line args in from specified file.")]
         public string CommandFile { get; set; }
+
+        [Option('d', "PocoyoDataFilePath", Required = false, HelpText = "Pocoyo Data file path")]
+        public string PocoyoDataFilePath { get; set; }
 
         [Option('p', "SkipPreprocess", DefaultValue = false, HelpText = "Skips pre-processing files for types.")]
         public bool SkipPreprocess { get; set; }
@@ -83,7 +93,7 @@ Options:
 
   [c# file(s) / folder(s)] (Required) c# source files or folder containing c# files
                            Specifies c# file(s) and/or c# folder(s) to convert to typescript definition files.
-                           Seperate files/folders by spaces.",
+                           Separate files/folders by spaces.",
             };
             helpText.AddOptions(this);
 
@@ -116,6 +126,17 @@ Examples:
 
         private bool ProcessArgs(bool ignoreCommandFile = false)
         {
+            if (!string.IsNullOrEmpty(PocoyoDataFilePath))
+            {
+                if (!File.Exists(PocoyoDataFilePath))
+                {
+                    LogError($"Missing file: {PocoyoDataFilePath}");
+                    return false;
+                }
+
+                PocoyoData.LoadFromData(PocoyoDataFilePath);
+            }
+
             if (!ignoreCommandFile)
             {
                 if (!string.IsNullOrEmpty(CommandFile))
@@ -227,7 +248,7 @@ Examples:
             }
             catch (Exception ex)
             {
-                Log.Exception(ex);
+                Log.Exception($"{nameof(SerializeToJson)}", ex);
             }
         }
 

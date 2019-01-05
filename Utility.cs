@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 
 namespace Pocoyo
 {
@@ -30,6 +31,72 @@ namespace Pocoyo
             var relativeUrl = MakeRelativeUrl(filePath, referencePath);
             return relativeUrl.Replace("file://", "").Replace("/", "\\");
         }
+
+        public static bool TryMoveFile(string sourceFile, string targetFile)
+        {
+            try
+            {
+                //Log.Info($"{sourceFile} to {targetFile}");
+
+                if (File.Exists(targetFile))
+                    TryDeleteFile(targetFile);
+
+                if (File.Exists(sourceFile))
+                {
+                    File.Move(sourceFile, targetFile);
+                }
+                return true;
+            }
+            catch
+            {
+                // Ignored
+            }
+            return false;
+        }
+
+        public static bool TryCopyFile(string sourceFile, string targetFile)
+        {
+            try
+            {
+                //Log.Info($"{sourceFile} to {targetFile}");
+
+                if (File.Exists(targetFile))
+                    TryDeleteFile(targetFile);
+
+                if (File.Exists(sourceFile))
+                {
+                    File.Copy(sourceFile, targetFile, true);
+                }
+                return true;
+            }
+            catch
+            {
+                // Ignored
+            }
+            return false;
+        }
+
+        public static bool TryDeleteFile(string file)
+        {
+            for (var idx = 0; idx < 3; idx++)
+            {
+                try
+                {
+                    //Log.Info(file);
+
+                    if (File.Exists(file))
+                        File.Delete(file);
+                    return true;
+                }
+                catch
+                {
+                    // ignored
+                }
+                Thread.Sleep(1000);
+            }
+            return false;
+        }
+
     }
 
     public static class Log
@@ -300,7 +367,10 @@ namespace Pocoyo
             }
             catch
             {
+                // ignored
             }
+
+            var error = "";
 
             for (var idx = 0; idx < 3; idx++)
             {
@@ -337,9 +407,11 @@ namespace Pocoyo
                         msg = "BYTES";
                     }
 
-                    Log.Info($"Exception: {filePath} {ex.Message} {buffer.Length} {msg.Length} {msg.Substring(0, Math.Min(100, msg.Length))}");
+                    error = $"Exception: {filePath} {ex.Message}"; // {buffer.Length} {msg.Length} {msg.Substring(0, Math.Min(100, msg.Length))}";
                 }
             }
+
+            Log.Info($"Failed: {error}");
 
             return false;
         }

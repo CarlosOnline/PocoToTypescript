@@ -23,17 +23,17 @@ namespace Pocoyo
         public static List<string> ExcludedAttributes { get; set; } = new List<string>();
         public static List<string> KnownTypes { get; set; } = new List<string>();
 
-        private int _indent = 0;
+        private int _indent;
         private string Indent => _indent > 0 ? " ".PadRight(_indent) : "";
 
         private const string OpenBrace = "{";
-        private const string CloseBrase = "}";
+        private const string CloseBrace = "}";
 
-        private static List<string> Namespaces { get; } = new List<string>();
-        private static string Namespace => string.Join(".", Namespaces);
+        internal static List<string> Namespaces { get; set; } = new List<string>();
+        internal static string Namespace => string.Join(".", Namespaces);
 
-        private static Dictionary<string, string> DiscoveredTypes { get; } = new Dictionary<string, string>();
-        private static Dictionary<string, string> ExcludedTypes { get; } = new Dictionary<string, string>();
+        internal static Dictionary<string, string> DiscoveredTypes { get; set; } = new Dictionary<string, string>();
+        internal static Dictionary<string, string> ExcludedTypes { get; set; } = new Dictionary<string, string>();
 
         internal static bool IsKnownType(string fullType)
         {
@@ -304,9 +304,9 @@ namespace Pocoyo
                     case ClassDeclarationSyntax declItem:
                         Process(declItem);
                         break;
-                    case FieldDeclarationSyntax fieldItem:
-                    case MethodDeclarationSyntax methodItem:
-                    case ConstructorDeclarationSyntax constructorItem:
+                    case FieldDeclarationSyntax _:
+                    case MethodDeclarationSyntax _:
+                    case ConstructorDeclarationSyntax _:
                         // skip methods etc
                         break;
                     default:
@@ -503,7 +503,7 @@ namespace Pocoyo
                 return;
 
             DecreaseLevel();
-            var output = $@"{Indent}{line}{CloseBrase}
+            var output = $@"{Indent}{line}{CloseBrace}
 ";
             Log.Verbose(output);
             if (!string.IsNullOrEmpty(OutputFile))
@@ -561,6 +561,10 @@ namespace Pocoyo
 
         public static string ToTypescript(this IdentifierNameSyntax syntaxItem)
         {
+            // Don't warn for common generic <T> argument
+            if (syntaxItem.Identifier.Text == "T")
+                return "T";
+
             if (syntaxItem.Identifier.Text == "dynamic")
                 return "any";
 
@@ -575,10 +579,6 @@ namespace Pocoyo
 
             if (syntaxItem.IsKnownType())
                 return syntaxItem.Identifier.Text;
-
-            // Don't warn for common generic <T> argument
-            if (syntaxItem.Identifier.Text == "T")
-                return "T";
 
             Log.Warn($"Uknown identifier {syntaxItem}");
             return "any";
