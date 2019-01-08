@@ -11,7 +11,7 @@ namespace Pocoyo
 {
     public class Options
     {
-        private string _errorMessage;
+        private static string _errorMessage;
 
         /// <summary>
         /// Files or Folders to parse
