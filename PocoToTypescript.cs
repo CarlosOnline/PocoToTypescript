@@ -37,7 +37,8 @@ namespace Pocoyo
 
         internal static bool IsKnownType(string fullType)
         {
-            return DiscoveredTypes.ContainsKey(fullType) || KnownTypes.Contains(fullType);
+            var _fullType = fullType.ToLower();
+            return DiscoveredTypes.ContainsKey(_fullType) || KnownTypes.Contains(_fullType);
         }
 
         internal static bool IsSpecifiedKnownType(string fullType)
@@ -47,7 +48,8 @@ namespace Pocoyo
 
         internal static string MapKnownType(string fullType)
         {
-            return DiscoveredTypes.ContainsKey(fullType) ? DiscoveredTypes[fullType] : null;
+            var _fullType = fullType.ToLower();
+            return DiscoveredTypes.ContainsKey(_fullType) ? DiscoveredTypes[_fullType] : null;
         }
 
         internal static bool IsExcludedType(string fullType)
@@ -294,15 +296,33 @@ namespace Pocoyo
             if (!PreprocessMode)
                 AddLevel($@"export interface {syntaxItem.Identifier}{syntaxItem.TypeParameterList}{ToExtends(syntaxItem.BaseList)}");
 
+            var items = new List<string>();
+
             foreach (var memberItem in syntaxItem.Members)
             {
                 switch (memberItem)
                 {
                     case PropertyDeclarationSyntax declItem:
-                        Process(declItem);
+                        {
+                            var name = (declItem.Identifier.Value as string).ToLower();
+                            var found = items.Contains(name);
+                            if (!found)
+                            {
+                                items.Add(declItem.Identifier.Value as string);
+                                Process(declItem);
+                            }
+                        }
                         break;
                     case ClassDeclarationSyntax declItem:
-                        Process(declItem);
+                        {
+                            var name = (declItem.Identifier.Value as string).ToLower();
+                            var found = items.Contains(name);
+                            if (!found)
+                            {
+                                items.Add(declItem.Identifier.Value as string);
+                                Process(declItem);
+                            }
+                        }
                         break;
                     case FieldDeclarationSyntax _:
                     case MethodDeclarationSyntax _:
@@ -362,24 +382,29 @@ namespace Pocoyo
 
             // Add Identifier
             var identifierFullType = $"{Namespace}.{syntaxItem.Identifier.Text}";
+
+            var _fullType = fullType.ToLower();
+            var _identifierFullType = identifierFullType.ToLower();
+            var _identifier = syntaxItem.Identifier.Text.ToLower();
+
             if (fullType != identifierFullType)
             {
-                if (!DiscoveredTypes.ContainsKey(identifierFullType))
+                if (!DiscoveredTypes.ContainsKey(_identifierFullType))
                 {
-                    DiscoveredTypes[identifierFullType] = identifierFullType;
+                    DiscoveredTypes[_identifierFullType] = identifierFullType;
                 }
             }
 
             // Add Unqualified Identifier
-            if (fullType != syntaxItem.Identifier.Text)
+            if (_fullType != _identifier)
             {
-                if (!DiscoveredTypes.ContainsKey(syntaxItem.Identifier.Text))
+                if (!DiscoveredTypes.ContainsKey(_identifier))
                 {
-                    DiscoveredTypes[syntaxItem.Identifier.Text] = syntaxItem.Identifier.Text;
+                    DiscoveredTypes[_identifier] = syntaxItem.Identifier.Text;
                 }
             }
 
-            if (DiscoveredTypes.ContainsKey(fullType))
+            if (DiscoveredTypes.ContainsKey(_fullType))
             {
                 Log.Warn($"Discovered Type already found: {fullType} {syntaxItem}");
                 return false;
@@ -387,9 +412,9 @@ namespace Pocoyo
 
             // Use default namespace if specified
             if (!string.IsNullOrEmpty(DefaultNamespace))
-                DiscoveredTypes[fullType] = fullType.Replace(Namespace, DefaultNamespace);
+                DiscoveredTypes[_fullType] = fullType.Replace(Namespace, DefaultNamespace);
             else
-                DiscoveredTypes[fullType] = fullType;
+                DiscoveredTypes[_fullType] = fullType;
 
             return true;
         }
