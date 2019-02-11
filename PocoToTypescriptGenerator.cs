@@ -80,7 +80,6 @@ namespace Pocoyo
                             }
 
                             var contents = SharedFile.ReadAllText(inputFile);
-                            SharedFile.AppendAllText(outputFilePath, contents);
 
                             Execute(outputFilePath, () =>
                             {
